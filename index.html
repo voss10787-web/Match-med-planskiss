@@ -2140,7 +2140,7 @@ function updateGoalLabels(){
  for(const [id,own] of labels){const el=$(id);el.className='smGoalLabel '+(own?'smGoalOwn':'smGoalOpp');el.textContent=own?'🟢 MÅLET ÖJABY ANFALLER MOT':'🔴 MÅLET MOTSTÅNDARNA ANFALLER MOT';}
  $('smGoalInfo').textContent='Period '+period+' · Anfallsriktningen växlar automatiskt mellan perioderna';
 }
-function savePrefs(){prefs={side:$('smSide').value,attack:$('smAttack').value};localStorage.setItem(prefsKey,JSON.stringify(prefs));draw(rink,[],selected);updateGoalLabels()}$('smSide').onchange=savePrefs;$('smAttack').onchange=savePrefs;
+function savePrefs(){prefs={side:$('smSide').value,attack:$('smAttack').value};localStorage.setItem(prefsKey,JSON.stringify(prefs));draw(rink,[],selected);updateGoalLabels();drawAnalysis()}$('smSide').onchange=savePrefs;$('smAttack').onchange=savePrefs;
 function teamType(btn){const id=btn.id,txt=(btn.textContent||'').toLowerCase();if(['quickGoal','quickAgainst','quickShotOn','quickShotOff','quickShotBlocked','quickOppShot','shotOn','shotOff','shotBlocked','shotAgainst'].includes(id)||btn.closest('.teamQuickGroup')&&(/mål|skott/.test(txt))){if(/utvisning/.test(txt))return null;return {team:btn.closest('.teamQuickGroup.opp')||['quickAgainst','quickOppShot','shotAgainst'].includes(id)?'opp':'own',type:txt.trim()||id};}return null}
 function eventMatch(e,p){if(!e||e.penaltyShot)return false;const t=String(e.type||'').toLowerCase();if(p.team==='opp')return /bakåt|motståndar/.test(t);return /mål framåt|skott/.test(t)&&!/motståndar/.test(t)}
 function commitPosition(){
@@ -2165,9 +2165,63 @@ function resume(withPosition){const p=pending;overlay.hidden=true;if(!p)return;s
 document.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn||btn.dataset.smBypass||overlay.contains(btn))return;if(openMap(btn)){e.preventDefault();e.stopImmediatePropagation()}},true);
 rink.addEventListener('click',e=>{const rect=rink.getBoundingClientRect();const x=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));const y=Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));selected={x,y};$('smConfirm').disabled=false;draw(rink,[],selected)});
 $('smConfirm').onclick=()=>{if(selected)resume(true)};$('smSkip').onclick=()=>resume(false);$('smCancel').onclick=()=>{overlay.hidden=true;pending=null;selected=null};
-const panel=document.createElement('section');panel.className='panel';panel.id='smAnalysisPanel';panel.innerHTML='<h2>🎯 Shotmap Pro – analys</h2><p class="help">Grönt = Öjaby, rött = motståndarna. Positionerna följer respektive matchhändelse. Ångra eller radera händelsen tar även bort dess position.</p><div class="row"><label>Visa <select id="smFilter"><option value="all">Alla skott</option><option value="own">Öjaby</option><option value="opp">Motståndare</option></select></label><button type="button" id="smExport" class="secondary">Exportera positioner (JSON)</button><button type="button" id="smClear" class="danger">Rensa skottkarta</button></div><svg id="smAnalysisRink" viewBox="0 0 360 680"></svg><div id="smStats"></div>';
+const panel=document.createElement('section');panel.className='panel';panel.id='smAnalysisPanel';panel.innerHTML='<h2>🎯 Shotmap Pro – analys</h2><p class="help">Grönt = Öjaby, rött = motståndarna. Positionerna följer respektive matchhändelse. Ångra eller radera händelsen tar även bort dess position.</p><div class="row"><label>Visa <select id="smFilter"><option value="all">Alla skott</option><option value="own">Öjaby</option><option value="opp">Motståndare</option></select></label><label>Period <select id="smPeriodFilter"><option value="all">Alla perioder</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label><button type="button" id="smExport" class="secondary">Exportera positioner (JSON)</button><button type="button" id="smClear" class="danger">Rensa skottkarta</button></div><svg id="smAnalysisRink" viewBox="0 0 360 680"></svg><div id="smStats"></div><div id="smZoneReport"></div><div id="smTrainingPlan"></div>';
 const anchor=$('analysisPanel')||$('seasonPanel');anchor.parentNode.insertBefore(panel,anchor);
-function drawAnalysis(){const filtered=pointsNow().filter(p=>$('smFilter').value==='all'||p.team===$('smFilter').value);draw($('smAnalysisRink'),filtered);$('smStats').textContent=`${filtered.length} positioner registrerade · ${filtered.filter(p=>p.type.toLowerCase().includes('mål')).length} mål. Positionerna följer händelserna även vid redigering och ångra.`}
+function smCategory(type){const t=String(type||'').toLowerCase();if(t.includes('mål'))return 'goal';if(t.includes('täck')||t.includes('block'))return 'blocked';if(t.includes('utanför'))return 'off';return 'on'}
+function smZone(p){
+ // Always normalize toward the attacking goal for the team and period.
+ // P1: attack right => top in the vertical SVG. Teams swap ends in P2.
+ const ownTop=(prefs.attack==='right')!==(Number(p.period||1)%2===0);
+ const teamTop=p.team==='own'?ownTop:!ownTop;
+ const depth=teamTop?p.y:1-p.y;
+ const lateral=Math.abs(p.x-.5);
+ if(depth<.24)return lateral<.23?'Slottet':'Nära mål – kant';
+ if(depth<.49)return lateral<.23?'Centralt mellanavstånd':'Yttre mellanavstånd';
+ return 'Långdistans / egen planhalva';
+}
+const smZones=['Slottet','Nära mål – kant','Centralt mellanavstånd','Yttre mellanavstånd','Långdistans / egen planhalva'];
+function smPct(n,d){return d?Math.round(n*100/d)+' %':'–'}
+function smCell(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function smReport(points){
+ const period=$('smPeriodFilter').value,team=$('smFilter').value;
+ return points.filter(p=>(team==='all'||p.team===team)&&(period==='all'||String(p.period)===period));
+}
+function smTraining(own,opp){
+ const n=own.length, conceded=opp.length;
+ const ownSlot=own.filter(p=>smZone(p)==='Slottet').length;
+ const oppSlot=opp.filter(p=>smZone(p)==='Slottet').length;
+ const ownGoal=own.filter(p=>smCategory(p.type)==='goal').length;
+ const ownOff=own.filter(p=>smCategory(p.type)==='off').length;
+ const focus=[];
+ if(conceded>=5&&oppSlot/conceded>=.3)focus.push({name:'Skydda slottet',reason:`${oppSlot} av ${conceded} registrerade motståndaravslut kommer från slottet.`,exercise:'3 mot 3 framför mål: backar stänger centrala passningar och tar bort klubbor; avsluta med målvaktsreturer.'});
+ if(n>=5&&ownSlot/n<.25)focus.push({name:'Skapa avslut centralt',reason:`Bara ${ownSlot} av ${n} egna avslut kommer från slottet.`,exercise:'3 mot 2 från hörn: spela in bollen centralt, ta direktavslut och gå på retur.'});
+ if(n>=5&&ownOff/n>=.3)focus.push({name:'Träffsäkerhet under press',reason:`${ownOff} av ${n} egna avslut har registrerats som utanför.`,exercise:'Avslutsstationer från tre vinklar: skott i fart mot markerade målzoner med försvarare som stör.'});
+ if(n>=5&&ownGoal===0)focus.push({name:'Avslut och returer',reason:'Inga mål bland de positionsregistrerade egna avsluten.',exercise:'2 mot 1 med direktskott, målvaktsretur och avslut inom tre sekunder.'});
+ if(!focus.length)focus.push({name:'Spelvändning och avslut',reason:'Ingen tydlig avvikelse i de registrerade positionerna ännu.',exercise:'3 mot 2 med snabb spelvändning, passning till avslutsläge och returspel.'});
+ const primary=focus[0],secondary=focus[1]||{name:'Matchlikt beslutsfattande',exercise:'Smålagsspel 4 mot 4 med poäng för skott från farlig yta och aktivt försvarsarbete.'};
+ return {focus,sections:[
+ ['10 min','Aktiv uppvärmning','Rörlighet, bollkontroll och passningar i rörelse.'],
+ ['15 min',primary.name,primary.exercise],
+ ['15 min',secondary.name,secondary.exercise],
+ ['15 min','Målvakt och avslut','Skott från båda sidor, skymning, returer och snabbt omställningsspel.'],
+ ['15 min','Matchspel med fokus',`4 mot 4/5 mot 5. Extra poäng när laget lyckas med: ${primary.name.toLowerCase()}.`],
+ ['5 min','Nedvarvning och återkoppling','Samla laget: vad fungerade, vad tränar vi vidare på?']
+ ]};
+}
+function drawAnalysis(){
+ const all=pointsNow(),filtered=smReport(all);
+ draw($('smAnalysisRink'),filtered);
+ const goals=filtered.filter(p=>smCategory(p.type)==='goal').length;
+ $('smStats').textContent=`${filtered.length} positionsregistrerade avslut · ${goals} mål. Analysen bygger bara på händelser med markerad position.`;
+ const counts=team=>smZones.map(z=>{const arr=filtered.filter(p=>p.team===team&&smZone(p)===z);return {zone:z,total:arr.length,goals:arr.filter(p=>smCategory(p.type)==='goal').length,on:arr.filter(p=>['goal','on'].includes(smCategory(p.type))).length,off:arr.filter(p=>smCategory(p.type)==='off').length,blocked:arr.filter(p=>smCategory(p.type)==='blocked').length}});
+ const own=counts('own'),opp=counts('opp');
+ const row=(z,a,b)=>`<tr><th>${smCell(z)}</th><td>${a.total}</td><td>${a.goals}</td><td>${smPct(a.goals,a.total)}</td><td>${b.total}</td><td>${b.goals}</td></tr>`;
+ $('smZoneReport').innerHTML=`<h3>📍 Zonanalys</h3><p class="help">Positionerna räknas relativt lagets anfallsmål och vald period. Effektivitet = mål / positionsregistrerade avslut, inte skott på mål.</p><div class="scroll"><table><thead><tr><th>Zon</th><th>Öjaby avslut</th><th>Öjaby mål</th><th>Mål/avslut</th><th>Motst. avslut</th><th>Motst. mål</th></tr></thead><tbody>${smZones.map((z,i)=>row(z,own[i],opp[i])).join('')}</tbody></table></div>`;
+ const trainingOwn=all.filter(p=>p.team==='own'),trainingOpp=all.filter(p=>p.team==='opp');
+ const t=smTraining(trainingOwn,trainingOpp);
+ $('smTrainingPlan').innerHTML=`<h3>🏑 Träningsförslag – 75 minuter</h3><p class="help">Automatiskt förslag baserat på alla positionsregistrerade avslut i aktuell match. Det är tränarstöd, inte en säker slutsats om lagets spel.</p><p><strong>Prioritering:</strong> ${smCell(t.focus[0].name)} – ${smCell(t.focus[0].reason)}</p><div class="scroll"><table><thead><tr><th>Tid</th><th>Moment</th><th>Genomförande</th></tr></thead><tbody>${t.sections.map(x=>`<tr><td>${smCell(x[0])}</td><td>${smCell(x[1])}</td><td>${smCell(x[2])}</td></tr>`).join('')}</tbody></table></div><button type="button" class="secondary" id="smCopyTraining">Kopiera träningspass</button>`;
+ $('smCopyTraining').onclick=()=>{const txt=['Träningspass 75 minuter – '+t.focus[0].name,...t.sections.map(x=>x.join(' | '))].join('\n');if(navigator.clipboard?.writeText)navigator.clipboard.writeText(txt).then(()=>{ $('smCopyTraining').textContent='Kopierat!'}).catch(()=>window.prompt('Kopiera träningspasset:',txt));else window.prompt('Kopiera träningspasset:',txt)};
+}
 const originalSmRender=render;render=function(){originalSmRender();drawAnalysis()};
-$('smFilter').onchange=drawAnalysis;$('smExport').onclick=()=>{const blob=new Blob([JSON.stringify({version:2,points:pointsNow()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='matchcoach-shotmap.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};$('smClear').onclick=()=>{if(confirm('Rensa skottpositioner från aktuell match? Händelserna och statistiken behålls.')){for(const e of state.events||[])delete e.shotmap;save();drawAnalysis()}};drawAnalysis();
+$('smFilter').onchange=drawAnalysis;$('smPeriodFilter').onchange=drawAnalysis;$('smExport').onclick=()=>{const blob=new Blob([JSON.stringify({version:2,points:pointsNow()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='matchcoach-shotmap.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};$('smClear').onclick=()=>{if(confirm('Rensa skottpositioner från aktuell match? Händelserna och statistiken behålls.')){for(const e of state.events||[])delete e.shotmap;save();drawAnalysis()}};drawAnalysis();
 })();</script></body></html>
