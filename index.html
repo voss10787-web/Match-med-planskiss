@@ -599,7 +599,7 @@ function pick(type){pending=type;const on=[...(state.active?.players||[])];picke
 document.getElementById('shotOn').onclick=()=>pick('Skott på mål');document.getElementById('shotOff').onclick=()=>pick('Skott utanför');document.getElementById('shotBlock').onclick=()=>pick('Täckt skott');document.getElementById('shotBlocked').onclick=()=>pick('Skott i täck');document.getElementById('shotAgainst').onclick=()=>addShot('Motståndarskott på mål','');document.getElementById('shotCancel').onclick=()=>picker.hidden=true;
 const oldRender=render;render=function(){oldRender();updateShotTotals();showMeta();};updateShotTotals();
 })();
-</script><script>if("serviceWorker" in navigator && location.protocol.startsWith("http")){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script><script>
+</script><!-- LAB v25: do not register legacy service worker; update control below --><script>
 (()=>{
 'use strict';
 const seasonKey='ojaby_matchcoach_season_v4';
@@ -2589,4 +2589,51 @@ function drawAnalysis(){
 }
 const originalSmRender=render;render=function(){originalSmRender();drawAnalysis()};
 $('smFilter').onchange=drawAnalysis;$('smPeriodFilter').onchange=drawAnalysis;$('smExport').onclick=()=>{const blob=new Blob([JSON.stringify({version:2,points:pointsNow()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='matchcoach-shotmap.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};$('smClear').onclick=()=>{if(confirm('Rensa skottpositioner från aktuell match? Händelserna och statistiken behålls.')){for(const e of state.events||[])delete e.shotmap;save();drawAnalysis()}};drawAnalysis();
-})();</script></body></html>
+})();</script><style>
+#mcVersionTools{position:fixed;left:8px;bottom:8px;z-index:900;display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid #54708b;border-radius:9px;background:#15283deF;color:#fff;font:12px system-ui;max-width:calc(100vw - 150px)}
+#mcVersionTools button{min-height:32px;padding:5px 8px;border-radius:7px;background:#285c87;color:white;border:1px solid #87a9c5;font:600 12px system-ui}
+#mcVersionStatus{position:fixed;left:8px;bottom:53px;z-index:901;max-width:calc(100vw - 25px);padding:7px 10px;background:#20374e;color:white;border-radius:8px;font:12px system-ui;display:none}
+</style>
+<script>
+/* LAB v25: version display and cache-safe update; match data in localStorage is untouched. */
+(function(){
+ const VERSION='LAB v25';
+ function showStatus(message){const el=document.getElementById('mcVersionStatus');if(el){el.textContent=message;el.style.display='block';}}
+ async function unregisterLegacy(){
+   if(!('serviceWorker' in navigator))return;
+   try{
+     const regs=await navigator.serviceWorker.getRegistrations();
+     const path=new URL('./',location.href).pathname;
+     for(const reg of regs){
+       if(new URL(reg.scope).pathname===path){await reg.unregister();}
+     }
+   }catch(e){showStatus('Service worker kunde inte kontrolleras: '+e.message);}
+ }
+ async function update(){
+   const btn=document.getElementById('mcUpdateButton');if(btn)btn.disabled=true;
+   showStatus('Kontrollerar publicerad version…');
+   try{
+     await unregisterLegacy();
+     const url=new URL('index.html',location.href);
+     url.searchParams.set('mc_update',String(Date.now()));
+     const res=await fetch(url.href,{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+     if(!res.ok)throw new Error('HTTP '+res.status);
+     const html=await res.text();
+     if(!html.includes('Matchcoach'))throw new Error('Svar från servern verkar inte vara Matchcoach');
+     const match=html.match(/const VERSION='(LAB v\d+)'/);
+     const remote=match?match[1]:'äldre version (utan versionsmärkning)';
+     showStatus('Publicerad: '+remote+'. Laddar om…');
+     location.replace(url.href);
+   }catch(e){showStatus('Uppdatering misslyckades: '+e.message);if(btn)btn.disabled=false;}
+ }
+ function init(){
+   const bar=document.createElement('div');bar.id='mcVersionTools';
+   const name=document.createElement('span');name.textContent=VERSION;bar.appendChild(name);
+   const btn=document.createElement('button');btn.type='button';btn.id='mcUpdateButton';btn.textContent='Uppdatera';btn.addEventListener('click',update);bar.appendChild(btn);
+   const status=document.createElement('div');status.id='mcVersionStatus';status.setAttribute('role','status');
+   document.body.append(bar,status);
+   unregisterLegacy();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script></body></html>
