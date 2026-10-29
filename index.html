@@ -1020,7 +1020,7 @@ function smCoachChecklist(own,opp,coverage){
 function smRenderCoach(own,opp,coverage){
  const target=$('smV10Coach');if(!target)return;
  const topics=smCoachChecklist(own,opp,coverage);
- target.innerHTML=`<h3>🧠 Tränarens checklista <small style="font-size:11px;opacity:.7">LAB v17</small></h3><p class="help">Hypoteser att kontrollera på planen – skottpositioner kan inte ensamma förklara varför ett läge uppstod.</p>${topics.map((t,i)=>`<details class="sm-v10-topic" ${i===0?'open':''}><summary>${smCell(t.title)}</summary><p><strong>Varför:</strong> ${smCell(t.why)}</p><p><strong>Titta efter:</strong> ${smCell(t.watch)}</p><p><strong>Träna:</strong> ${smCell(t.drill)}</p></details>`).join('')}`;
+ target.innerHTML=`<h3>🧠 Tränarens checklista <small style="font-size:11px;opacity:.7">LAB v19</small></h3><p class="help">Hypoteser att kontrollera på planen – skottpositioner kan inte ensamma förklara varför ett läge uppstod.</p>${topics.map((t,i)=>`<details class="sm-v10-topic" ${i===0?'open':''}><summary>${smCell(t.title)}</summary><p><strong>Varför:</strong> ${smCell(t.why)}</p><p><strong>Titta efter:</strong> ${smCell(t.watch)}</p><p><strong>Träna:</strong> ${smCell(t.drill)}</p></details>`).join('')}`;
 }
 // LAB v12: curated drill bank; suggestions are coaching heuristics, not proven causal diagnoses.
 const smDrillBank=[
@@ -2280,21 +2280,45 @@ function updateGoalLabels(){
 }
 function savePrefs(){prefs={side:$('smSide').value,attack:$('smAttack').value};mcTestStorage.setItem(prefsKey,JSON.stringify(prefs));draw(rink,[],selected);updateGoalLabels();drawAnalysis()}$('smSide').onchange=savePrefs;$('smAttack').onchange=savePrefs;
 function teamType(btn){const id=btn.id,txt=(btn.textContent||'').toLowerCase();if(['quickGoal','quickAgainst','quickShotOn','quickShotOff','quickShotBlocked','quickOppShot','shotOn','shotOff','shotBlocked','shotAgainst'].includes(id)||btn.closest('.teamQuickGroup')&&(/mål|skott/.test(txt))){if(/utvisning/.test(txt))return null;return {team:btn.closest('.teamQuickGroup.opp')||['quickAgainst','quickOppShot','shotAgainst'].includes(id)?'opp':'own',type:txt.trim()||id};}return null}
-function eventMatch(e,p){if(!e||e.penaltyShot)return false;const t=String(e.type||'').toLowerCase();if(p.team==='opp')return /bakåt|motståndar/.test(t);return /mål framåt|skott/.test(t)&&!/motståndar/.test(t)}
+function eventMatch(e,p){
+ if(!e||e.penaltyShot||e.shotmap)return false;
+ const t=String(e.type||'').toLowerCase(), id=p.button?.id||'', label=String(p.type||'').toLowerCase();
+ const opp=/bakåt|motståndar/.test(t);
+ if((p.team==='opp')!==opp)return false;
+ // A goal click must never attach its position to a different shot event.
+ if(/goal|against/i.test(id)||/mål/.test(label)&&!/skott/.test(label))return /mål framåt|mål bakåt/.test(t);
+ // Match the actual shot outcome, not just any shot by the same team.
+ if(/blocked/i.test(id)||/täck/.test(label))return /täck/.test(t);
+ if(/off/i.test(id)||/utanför/.test(label))return /utanför/.test(t);
+ if(/on|oppShot|shotAgainst/i.test(id)||/på mål/.test(label))return /skott/.test(t)&&!/utanför|täck/.test(t);
+ return /skott/.test(t);
+}
+// Every new match event receives a stable identifier, including legacy events on first access.
+let smEventCounter=0;
+function smEnsureEventIds(){
+ for(const ev of (state.events||[]))if(ev&&!ev.smEventId)ev.smEventId='sm-'+Date.now().toString(36)+'-'+(++smEventCounter).toString(36);
+}
+function smCancelPending(){clearInterval(waiting);waiting=null;pending=null;selected=null;}
 function commitPosition(){
  if(!pending||!selected)return false;
- const found=(state.events||[]).slice(pending.startCount).find(e=>eventMatch(e,pending)&&!e.shotmap);
- if(!found)return false;
- found.shotmap={x:selected.x,y:selected.y,team:pending.team,created:Date.now()};
- save();pending=null;selected=null;drawAnalysis();return true;
+ // Never guess when multiple events of the requested kind were recorded.
+ const candidates=(state.events||[]).slice(pending.startCount).filter(e=>eventMatch(e,pending));
+ if(candidates.length!==1)return false;
+ const found=candidates[0];
+ if(found.shotmap)return false;
+ smEnsureEventIds();
+ found.shotmap={x:selected.x,y:selected.y,team:pending.team,eventId:found.smEventId,created:Date.now()};
+ save();smCancelPending();drawAnalysis();return true;
 }
 function waitForEvent(){
  if(!pending||!selected)return;
  const started=Date.now();clearInterval(waiting);
  waiting=setInterval(()=>{
   if(!pending||!selected){clearInterval(waiting);return}
-  if(commitPosition()){clearInterval(waiting)}
-  else if(Date.now()-started>30000){clearInterval(waiting);pending=null;selected=null}
+  const candidates=(state.events||[]).slice(pending.startCount).filter(e=>eventMatch(e,pending));
+  if(candidates.length>1){smCancelPending();return} // Ambiguous: leave unpositioned rather than attach incorrectly.
+  if(commitPosition())return;
+  if(Date.now()-started>30000)smCancelPending();
  },200);
 }
 function openMap(btn){const kind=teamType(btn);if(!kind||pending)return false;pending={...kind,button:btn,startCount:state.events.length};selected=null;$('smEventLabel').textContent=(kind.team==='own'?'Öjaby: ':'Motståndare: ')+kind.type;$('smConfirm').disabled=true;updateGoalLabels();draw(rink);overlay.hidden=false;return true}
@@ -2302,8 +2326,8 @@ function resume(withPosition){const p=pending;overlay.hidden=true;if(!p)return;s
 // Capture before existing handlers; no original event registration logic is replaced.
 document.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn||btn.dataset.smBypass||overlay.contains(btn))return;if(openMap(btn)){e.preventDefault();e.stopImmediatePropagation()}},true);
 rink.setAttribute('tabindex','0');rink.setAttribute('aria-label','Skottkarta. Tryck eller använd piltangenter för att välja position.');rink.addEventListener('keydown',e=>{if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter',' '].includes(e.key))return;e.preventDefault();if(!selected)selected={x:.5,y:.5};const d=.025;if(e.key==='ArrowUp')selected.y=Math.max(0,selected.y-d);if(e.key==='ArrowDown')selected.y=Math.min(1,selected.y+d);if(e.key==='ArrowLeft')selected.x=Math.max(0,selected.x-d);if(e.key==='ArrowRight')selected.x=Math.min(1,selected.x+d);$('smConfirm').disabled=false;draw(rink,[],selected);});rink.addEventListener('click',e=>{const rect=rink.getBoundingClientRect();const x=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));const y=Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));selected={x,y};$('smConfirm').disabled=false;draw(rink,[],selected)});
-$('smConfirm').onclick=()=>{if(selected)resume(true)};$('smSkip').onclick=()=>resume(false);$('smCancel').onclick=()=>{overlay.hidden=true;pending=null;selected=null};
-const panel=document.createElement('section');panel.className='panel';panel.id='smAnalysisPanel';panel.innerHTML='<h2>🎯 Shotmap Pro – analys <small style="font-size:12px;opacity:.8">LAB v17</small></h2><p class="help" style="border-left:3px solid #d3a74b;padding-left:8px">Testversion med separat lagring. Tidigare matchdata i produktionsappen läses inte in här.</p><p class="help">Grönt = Öjaby, rött = motståndarna. Positionerna följer respektive matchhändelse. Ångra eller radera händelsen tar även bort dess position.</p><div class="row"><label>Visa <select id="smFilter"><option value="all">Alla skott</option><option value="own">Öjaby</option><option value="opp">Motståndare</option></select></label><label>Period <select id="smPeriodFilter"><option value="all">Alla perioder</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label><button type="button" id="smExport" class="secondary">Exportera positioner (JSON)</button><button type="button" id="smClear" class="danger">Rensa skottkarta</button></div><svg id="smAnalysisRink" viewBox="0 0 360 680"></svg><div id="smStats"></div><div id="smCoverage"></div><div id="smZoneReport"></div><section id="smV9Insights" aria-label="Matchinsikter och scouting"></section><div id="smTrainingPlan"></div><section id="smDrillBank" aria-label="Övningsbank"></section><section id="smV10Coach" aria-label="Tränarens checklista"></section>';
+$('smConfirm').onclick=()=>{if(selected)resume(true)};$('smSkip').onclick=()=>resume(false);$('smCancel').onclick=()=>{overlay.hidden=true;smCancelPending()};
+const panel=document.createElement('section');panel.className='panel';panel.id='smAnalysisPanel';panel.innerHTML='<h2>🎯 Shotmap Pro – analys <small style="font-size:12px;opacity:.8">LAB v19</small></h2><p class="help" style="border-left:3px solid #d3a74b;padding-left:8px">Testversion med separat lagring. Tidigare matchdata i produktionsappen läses inte in här.</p><p class="help">Grönt = Öjaby, rött = motståndarna. Positionerna följer respektive matchhändelse. Ångra eller radera händelsen tar även bort dess position.</p><div class="row"><label>Visa <select id="smFilter"><option value="all">Alla skott</option><option value="own">Öjaby</option><option value="opp">Motståndare</option></select></label><label>Period <select id="smPeriodFilter"><option value="all">Alla perioder</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label><button type="button" id="smExport" class="secondary">Exportera positioner (JSON)</button><button type="button" id="smClear" class="danger">Rensa skottkarta</button></div><svg id="smAnalysisRink" viewBox="0 0 360 680"></svg><div id="smStats"></div><div id="smCoverage"></div><div id="smZoneReport"></div><section id="smV9Insights" aria-label="Matchinsikter och scouting"></section><div id="smTrainingPlan"></div><section id="smDrillBank" aria-label="Övningsbank"></section><section id="smV10Coach" aria-label="Tränarens checklista"></section>';
 // Collapsible Shotmap analysis: native details preserves all existing controls and render targets.
 const smDetails=document.createElement('details');
 smDetails.id='smAnalysisDisclosure';
@@ -2391,7 +2415,7 @@ function smCoachChecklist(own,opp,coverage){
 function smRenderCoach(own,opp,coverage){
  const target=$('smV10Coach');if(!target)return;
  const topics=smCoachChecklist(own,opp,coverage);
- target.innerHTML=`<h3>🧠 Tränarens checklista <small style="font-size:11px;opacity:.7">LAB v17</small></h3><p class="help">Hypoteser att kontrollera på planen – skottpositioner kan inte ensamma förklara varför ett läge uppstod.</p>${topics.map((t,i)=>`<details class="sm-v10-topic" ${i===0?'open':''}><summary>${smCell(t.title)}</summary><p><strong>Varför:</strong> ${smCell(t.why)}</p><p><strong>Titta efter:</strong> ${smCell(t.watch)}</p><p><strong>Träna:</strong> ${smCell(t.drill)}</p></details>`).join('')}`;
+ target.innerHTML=`<h3>🧠 Tränarens checklista <small style="font-size:11px;opacity:.7">LAB v19</small></h3><p class="help">Hypoteser att kontrollera på planen – skottpositioner kan inte ensamma förklara varför ett läge uppstod.</p>${topics.map((t,i)=>`<details class="sm-v10-topic" ${i===0?'open':''}><summary>${smCell(t.title)}</summary><p><strong>Varför:</strong> ${smCell(t.why)}</p><p><strong>Titta efter:</strong> ${smCell(t.watch)}</p><p><strong>Träna:</strong> ${smCell(t.drill)}</p></details>`).join('')}`;
 }
 // LAB v12: curated drill bank; suggestions are coaching heuristics, not proven causal diagnoses.
 const smDrillBank=[
@@ -2470,7 +2494,7 @@ function drawAnalysis(){
  if(totalOwn.length>=8&&totalOwn.filter(p=>smCategory(p.type)==='off').length/totalOwn.length>=.3)insights.push('Avslut: hög andel utanför. Lägg in avslut i fart och träffsäkerhet under press.');
  if(!insights.length)insights.push('Ingen tydlig avvikelse med nuvarande underlag. Fortsätt registrera positioner över flera matcher.');
  const pct=(n,d)=>d?Math.round(100*n/d)+' %':'–';
- $('smV9Insights').innerHTML=`<h3>📊 Matchinsikter & periodtrend <small style="font-size:11px;opacity:.75">LAB v17</small></h3>
+ $('smV9Insights').innerHTML=`<h3>📊 Matchinsikter & periodtrend <small style="font-size:11px;opacity:.75">LAB v19</small></h3>
  <div class="sm-v9-grid">
  <div class="sm-v9-card"><strong>🟢 Öjaby · avslut från slottet</strong><span>${pct(ownSlot,totalOwn.length)}</span><small>${ownSlot} av ${totalOwn.length} positionsregistrerade</small></div>
  <div class="sm-v9-card"><strong>🔴 Motståndare · avslut från slottet</strong><span>${pct(oppSlot,totalOpp.length)}</span><small>${oppSlot} av ${totalOpp.length} positionsregistrerade</small></div>
