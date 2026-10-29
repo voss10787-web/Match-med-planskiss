@@ -2259,6 +2259,10 @@ const oldRender=render;render=function(){oldRender();draw()};draw();
 </script>
 <style id="shotmap-pro-style">
 #smOverlay[hidden]{display:none!important}#smOverlay{position:fixed;inset:0;z-index:200000;background:#07101bea;display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box}#smDialog{width:min(560px,100%);max-height:96dvh;overflow:auto;background:#17283e;border:1px solid #6b8bab;border-radius:16px;padding:14px;box-sizing:border-box;color:#eef5ff}#smDialog h2{margin:0 0 8px;font-size:20px}#smRink{display:block;width:100%;max-height:54dvh;touch-action:manipulation;background:#e8f3f9;border-radius:10px;cursor:crosshair}#smDialog .smControls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}#smDialog label{flex:1;min-width:140px}#smDialog select{width:100%}#smDialog button{min-height:44px}#smHint{font-size:12px;color:#bdd4e7}#smStats{font-size:13px;line-height:1.6}#smAnalysisRink{width:100%;max-width:500px;background:#e8f3f9;border-radius:9px}.smGoalLabel[hidden]{display:none!important}.smGoalLabel{padding:8px 10px;border-radius:9px;font-weight:800;font-size:13px;text-align:center;margin:7px 0;border:2px solid transparent}.smGoalOwn{background:#124c3c;border-color:#49d8a1;color:#e6fff4}.smGoalOpp{background:#58283a;border-color:#ff9aaa;color:#fff0f3}.smGoalInfo{font-size:12px;color:#b9d2e8;text-align:center;margin:4px 0 8px}
+
+/* LAB v23: avoid a second oversized Snabbbyte heading inside the accordion. */
+#mcMatchView details:has(> summary) #swapPanel > h2,
+#mcMatchView details:has(> summary) #swapPanel > p.help:first-of-type {display:none}
 </style>
 <div id="smOverlay" hidden role="dialog" aria-modal="true" aria-label="Skottkarta"><div id="smDialog"><h2>🎯 Shotmap Pro</h2><div id="smEventLabel"></div><div class="smControls"><label>Jag står vid <select id="smSide"><option value="bottom">Nedre långsidan på kartan</option><option value="top">Övre långsidan på kartan</option></select></label><label>Öjaby anfaller i P1 mot <select id="smAttack"><option value="right">Höger mål</option><option value="left">Vänster mål</option></select></label></div><div class="smControls"><button id="smFocusToggle" type="button" class="secondary" aria-pressed="false">Visa hela planen</button></div><div id="smGoalTop" class="smGoalLabel" aria-live="polite"></div><svg id="smRink" viewBox="0 0 360 680" role="img" aria-label="Tryck där skottet togs"></svg><div id="smGoalBottom" class="smGoalLabel" aria-live="polite"></div><div id="smGoalInfo" class="smGoalInfo"></div><p id="smHint">Tryck på planen där skottet togs. Kartan vänds automatiskt utifrån period och lag.</p><div class="smControls"><button id="smConfirm" type="button" disabled>Fortsätt registrering</button><button id="smSkip" type="button" class="secondary">Utan position</button><button id="smCancel" type="button" class="danger">Avbryt</button></div></div></div>
 <script id="shotmap-pro-script">(function(){'use strict';
@@ -2280,26 +2284,25 @@ function draw(target,records=[],mark=null){
  // Rink with rounded corners and no misleading blue hockey lines or centre circle.
  target.append(svg('rect',{x:X(0),y:Y(0),width:X(20)-X(0),height:Y(40)-Y(0),rx:33,ry:33,fill:'#f4f8f5',stroke:'#275e79','stroke-width':4}));
  target.append(line(X(0),Y(20),X(20),Y(20),'#ce4b55',2.5),dot(X(10),Y(20),4));
- // Goal lines are 2.85 m from each short end; the goal cage is centred on each line.
- for(const end of [0,40]){
-  const top=end===0,goalY=top?2.85:37.15;
-  const creaseNear=top?goalY:goalY-4,smallNear=top?goalY:goalY-1;
-  const creaseY=top?goalY:goalY-4;
-  target.append(line(X(0),Y(goalY),X(20),Y(goalY),'#ce4b55',2));
-  // Large goal crease: 4 m wide × 5 m deep, drawn from 1 m behind the goal line.
-  const largeY=top?goalY-1:goalY-4;
-  target.append(rect(X(8),Y(largeY),X(12)-X(8),Y(largeY+5)-Y(largeY)));
-  // Small goalkeeper area: 1 m × 2.5 m, centred in front of the goal line.
-  const smallY=top?goalY-0.5:goalY-2;
-  target.append(rect(X(9.5),Y(smallY),X(10.5)-X(9.5),Y(smallY+2.5)-Y(smallY),'#ce4b55',1.8));
-  // Goal frame behind the goal line, 1.6 m wide; small and unobtrusive.
-  const frameY=top?goalY-0.65:goalY;
-  target.append(svg('rect',{x:X(9.2),y:Y(frameY),width:X(10.8)-X(9.2),height:Y(.65)-Y(0),rx:2,fill:'#dbeaf2',stroke:'#244f6a','stroke-width':2}));
-  // Two face-off marks in each end zone and two near the centre line.
-  const endFaceY=top?8:32;
-  for(const fx of [4,16])target.append(dot(X(fx),Y(endFaceY),3.5));
+ // Official IFF layout: large crease 4 m deep x 5 m wide, its rear edge
+ // 2.85 m from the end board. Keeper area 1 m deep x 2.5 m wide,
+ // rear edge 0.65 m ahead of the large crease rear edge.
+ for(const top of [true,false]){
+  const largeRear=top?2.85:37.15;
+  const largeFront=top?6.85:33.15;
+  const keeperRear=top?3.50:36.50;
+  const keeperFront=top?4.50:35.50;
+  const largeY=Math.min(largeRear,largeFront);
+  const keeperY=Math.min(keeperRear,keeperFront);
+  target.append(rect(X(7.5),Y(largeY),X(12.5)-X(7.5),Y(4)-Y(0)));
+  target.append(rect(X(8.75),Y(keeperY),X(11.25)-X(8.75),Y(1)-Y(0),'#ce4b55',1.8));
+  // Posts stand on the keeper area's rear line; goal extends behind it.
+  const frameRear=top?keeperRear-0.65:keeperRear;
+  target.append(svg('rect',{x:X(9.2),y:Y(frameRear),width:X(10.8)-X(9.2),height:Y(.65)-Y(0),rx:2,fill:'#dbeaf2',stroke:'#244f6a','stroke-width':2}));
+  // Face-off dots on the imaginary extension of the goal line, 1.5 m from the boards.
+  for(const fx of [1.5,18.5])target.append(dot(X(fx),Y(keeperRear),3.5));
  }
- for(const fy of [18.5,21.5])for(const fx of [4,16])target.append(dot(X(fx),Y(fy),3.5));
+ for(const fx of [1.5,18.5])target.append(dot(X(fx),Y(20),3.5));
  for(const p of records){target.append(svg('circle',{cx:12+p.x*336,cy:12+p.y*656,r:String(p.type||'').toLowerCase().includes('mål')?8:5,fill:p.team==='own'?'#167b52':'#b12d47',stroke:'#fff','stroke-width':1.5,opacity:.85}));}
  if(mark)target.append(svg('circle',{cx:12+mark.x*336,cy:12+mark.y*656,r:10,fill:'#ffb020',stroke:'#1b2436','stroke-width':3}));
 }
@@ -2373,7 +2376,7 @@ document.addEventListener('click',e=>{const btn=e.target.closest('button');if(!b
 $('smFocusToggle').onclick=()=>{smFullView=!smFullView;smUpdateFocus()};
 rink.setAttribute('tabindex','0');rink.setAttribute('aria-label','Skottkarta. Tryck eller använd piltangenter för att välja position.');rink.addEventListener('keydown',e=>{if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter',' '].includes(e.key))return;e.preventDefault();if(!selected)selected={x:.5,y:smFullView?.5:(smFocusTop?.3:.7)};const d=.025;if(e.key==='ArrowUp')selected.y=Math.max(0,selected.y-d);if(e.key==='ArrowDown')selected.y=Math.min(1,selected.y+d);if(e.key==='ArrowLeft')selected.x=Math.max(0,selected.x-d);if(e.key==='ArrowRight')selected.x=Math.min(1,selected.x+d);$('smConfirm').disabled=false;draw(rink,[],selected);});rink.addEventListener('click',e=>{const matrix=rink.getScreenCTM();if(!matrix)return;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(matrix.inverse());const x=Math.max(0,Math.min(1,(p.x-12)/336));const y=Math.max(0,Math.min(1,(p.y-12)/656));selected={x,y};$('smConfirm').disabled=false;draw(rink,[],selected)});
 $('smConfirm').onclick=()=>{if(selected)resume(true)};$('smSkip').onclick=()=>resume(false);$('smCancel').onclick=()=>{overlay.hidden=true;smCancelPending()};
-const panel=document.createElement('section');panel.className='panel';panel.id='smAnalysisPanel';panel.innerHTML='<h2>🎯 Shotmap Pro – analys <small style="font-size:12px;opacity:.8">LAB v22</small></h2><p class="help" style="border-left:3px solid #d3a74b;padding-left:8px">Testversion med separat lagring. Tidigare matchdata i produktionsappen läses inte in här.</p><p class="help">Grönt = Öjaby, rött = motståndarna. Positionerna följer respektive matchhändelse. Ångra eller radera händelsen tar även bort dess position.</p><div class="row"><label>Visa <select id="smFilter"><option value="all">Alla skott</option><option value="own">Öjaby</option><option value="opp">Motståndare</option></select></label><label>Period <select id="smPeriodFilter"><option value="all">Alla perioder</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label><button type="button" id="smExport" class="secondary">Exportera positioner (JSON)</button><button type="button" id="smClear" class="danger">Rensa skottkarta</button></div><svg id="smAnalysisRink" viewBox="0 0 360 680"></svg><div id="smStats"></div><div id="smCoverage"></div><div id="smZoneReport"></div><section id="smV9Insights" aria-label="Matchinsikter och scouting"></section><div id="smTrainingPlan"></div><section id="smDrillBank" aria-label="Övningsbank"></section><section id="smV10Coach" aria-label="Tränarens checklista"></section>';
+const panel=document.createElement('section');panel.className='panel';panel.id='smAnalysisPanel';panel.innerHTML='<h2>🎯 Shotmap Pro – analys <small style="font-size:12px;opacity:.8">LAB v23</small></h2><p class="help" style="border-left:3px solid #d3a74b;padding-left:8px">Testversion med separat lagring. Tidigare matchdata i produktionsappen läses inte in här.</p><p class="help">Grönt = Öjaby, rött = motståndarna. Positionerna följer respektive matchhändelse. Ångra eller radera händelsen tar även bort dess position.</p><div class="row"><label>Visa <select id="smFilter"><option value="all">Alla skott</option><option value="own">Öjaby</option><option value="opp">Motståndare</option></select></label><label>Period <select id="smPeriodFilter"><option value="all">Alla perioder</option><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label><button type="button" id="smExport" class="secondary">Exportera positioner (JSON)</button><button type="button" id="smClear" class="danger">Rensa skottkarta</button></div><svg id="smAnalysisRink" viewBox="0 0 360 680"></svg><div id="smStats"></div><div id="smCoverage"></div><div id="smZoneReport"></div><section id="smV9Insights" aria-label="Matchinsikter och scouting"></section><div id="smTrainingPlan"></div><section id="smDrillBank" aria-label="Övningsbank"></section><section id="smV10Coach" aria-label="Tränarens checklista"></section>';
 // Collapsible Shotmap analysis: native details preserves all existing controls and render targets.
 const smDetails=document.createElement('details');
 smDetails.id='smAnalysisDisclosure';
@@ -2387,7 +2390,16 @@ panel.appendChild(smDetails);
 smDetails.addEventListener('toggle',()=>{
  smSummary.textContent=smDetails.open?'🎯 Shotmap Pro – Dölj analys':'🎯 Shotmap Pro – Visa analys';
 });
-const anchor=$('analysisPanel')||$('seasonPanel');anchor.parentNode.insertBefore(panel,anchor);
+// Shotmap is created after the Match/Analysis tab setup. Explicitly mount it
+// inside the Analysis tab; otherwise it remains outside both views and can disappear.
+const analysisHost=$('mcAnalysisView');
+if(analysisHost){
+  analysisHost.insertBefore(panel,analysisHost.firstChild);
+}else{
+  const anchor=$('analysisPanel')||$('seasonPanel');
+  if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(panel,anchor);
+  else document.querySelector('main')?.appendChild(panel);
+}
 function smCategory(type){const t=String(type||'').toLowerCase();if(t==='mål framåt'||t==='mål bakåt')return 'goal';if(t.includes('täck')||t.includes('block'))return 'blocked';if(t.includes('utanför'))return 'off';return 'on'}
 function smZone(p){
  // Always normalize toward the attacking goal for the team and period.
