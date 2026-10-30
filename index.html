@@ -2008,7 +2008,7 @@ const byId=id=>document.getElementById(id);
 const main=document.querySelector('main');
 const match=byId('mcMatchView'),analysis=byId('mcAnalysisView');
 let training=byId('mcTrainingView');const trainingBtn=byId('mcTrainingTab');
-if(!training){training=document.createElement('section');training.id='mcTrainingView';training.className='mc-view-page';training.setAttribute('role','tabpanel');training.hidden=true;training.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Bygg ditt eget 75-minuterspass. • Flikfix 26-10-30 D</p><div id="mcTrainingBankHost"></div></section>';analysis.after(training);}
+if(!training){training=document.createElement('section');training.id='mcTrainingView';training.className='mc-view-page';training.setAttribute('role','tabpanel');training.hidden=true;training.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Bygg ditt eget 75-minuterspass. • Planskisser v2 · 26-10-30</p><div id="mcTrainingBankHost"></div></section>';analysis.after(training);}
 const nav=byId('mcViewNav'),matchBtn=byId('mcMatchTab'),analysisBtn=byId('mcAnalysisTab');
 if(!main||!match||!analysis||!nav)return;
 // Place tab navigation at the bottom without rebuilding buttons or gesture handlers.
@@ -2892,7 +2892,7 @@ function ready(){
  if(!view){
    view=document.createElement('section');
    view.id='mcTrainingView';view.className='mc-view-page';view.setAttribute('role','tabpanel');view.hidden=true;
-   view.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Välj övningar och bygg ditt eget 75-minuterspass. • Flikfix 26-10-30 D</p><div id="mcTrainingBankHost"></div></section>';
+   view.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Välj övningar och bygg ditt eget 75-minuterspass. • Planskisser v2 · 26-10-30</p><div id="mcTrainingBankHost"></div></section>';
    analysis.after(view);
  }
  const host=document.getElementById('mcTrainingBankHost');
@@ -2914,7 +2914,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #mcIndependentBank .mc-bank-item>summary{padding:14px 12px;font-weight:700;cursor:pointer;line-height:1.35}
 #mcIndependentBank .mc-bank-detail{padding:4px 13px 14px}
 #mcIndependentBank .mc-bank-detail p{margin:9px 0;line-height:1.45}
-#mcIndependentBank .mc-bank-sketch{max-width:370px;margin:auto}
+#mcIndependentBank .mc-bank-sketch{max-width:370px;margin:12px auto} #mcIndependentBank .mc-bank-realrink{background:#203650;border:1px solid #4b6783;border-radius:12px;padding:12px} #mcIndependentBank .mc-bank-realrink figcaption span{display:block;margin-top:6px}
 #mcIndependentBank .mc-bank-sketch svg{display:block;width:100%;max-height:330px}
 #mcIndependentBank .mc-bank-sketch figcaption{font-size:12px;color:#d7e6f5;text-align:center;margin:3px 0 10px}
 #mcIndependentBank .mc-bank-check{display:flex;gap:10px;align-items:center;margin:12px 0}
@@ -2931,20 +2931,47 @@ const drills=[{"id":"slotdef","title":"Stäng slottet","focus":"Skydda slottet",
 const picked=new Set();
 const clean=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function diagram(d,index){
- const key=d.id+' '+d.title+' '+d.focus;
- const defender=/mot [12345]|försvar|hemjobb|boxplay|täck|duell|1 mot 1/i.test(key);
- const transition=/vänd|omställ|hemjobb|finsk|1 mot 0|2 mot 1/i.test(key);
- const play=/powerplay|boxplay|5 mot 4|4 mot 5/i.test(key);
- const shooters=play?5:(/3 mot|3 mot 2|3 mot 3/i.test(key)?3:/2 mot|2 mot 0/i.test(key)?2:1);
- const opponents=play?4:(/mot 3/i.test(key)?3:/mot 2/i.test(key)?2:defender?1:0);
- const points=[[57,155],[111,158],[84,121],[43,112],[127,114]];
- const defPoints=[[63,82],[108,82],[84,62],[45,65]];
- const circles=(n,loc,fill)=>loc.slice(0,n).map(([x,y],k)=>`<circle cx="${x}" cy="${y}" r="10" fill="${fill}" stroke="white" stroke-width="2"/><text x="${x}" y="${y+4}" fill="white" font-size="10" text-anchor="middle">${k+1}</text>`).join('');
- const run=transition?'M57 155 Q49 119 72 96 M111 158 Q119 125 99 98':'M57 155 Q69 137 84 121 M111 158 Q103 139 84 121';
- const shot='M84 121 L84 24';
- const pass=shooters>1?'<path d="M57 155 L111 158" stroke="#f2b447" stroke-width="2.5" stroke-dasharray="5 4" fill="none"/>':'';
- return `<figure class="mc-bank-sketch"><svg viewBox="0 0 170 205" role="img" aria-label="Schematisk planskiss för ${clean(d.title)}"><rect x="7" y="6" width="156" height="192" rx="24" fill="#e7f1f5" stroke="#5f92a8" stroke-width="2"/><path d="M7 102 H163 M7 54 H163 M7 157 H163" stroke="#83b7d0" stroke-width="1.5"/><circle cx="85" cy="102" r="20" stroke="#bb6575" fill="none" stroke-width="1.5"/><rect x="63" y="7" width="44" height="10" fill="#bd4c59"/><defs><marker id="mcBankArrow${index}" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" stroke="#1e618e" fill="none"/></marker></defs><path d="${run}" stroke="#1e618e" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#mcBankArrow${index})" fill="none"/>${pass}<path d="${shot}" stroke="#c74448" stroke-width="2.4" stroke-dasharray="5 4" fill="none"/>${circles(shooters,points,'#228a66')}${circles(opponents,defPoints,'#ba4652')}<circle cx="84" cy="28" r="3" fill="#242b34"/></svg><figcaption>Grön = anfallare · Röd = försvarare · Blå streck = löpning · Gul = passning · Röd linje = avslut. Schematisk skiss – följ texten för exakt organisation.</figcaption></figure>`;
+ // Each drill has its own coaching diagram. Coordinates represent percentages of a
+ // real 40 x 20 m floorball court, with the attacking goal at the top.
+ // A: attacker, D: defender, G: keeper. Path: R=run, P=pass, S=shot, B=ball exit.
+ const layouts={
+ slotdef:{a:[[15,35],[85,35],[51,46]],f:[[38,28],[62,28],[50,19]],p:[['P',15,35,51,46],['P',51,46,85,35]],r:[['R',51,46,50,22]],zone:true,note:'Håll insidan – styr anfallet mot sargen'},
+ slotattack:{a:[[13,38],[42,52],[85,45]],f:[[39,30],[65,28]],p:[['P',13,38,42,52],['P',42,52,64,26]],r:[['R',85,45,64,26]],sh:[[64,26,50,11]],zone:true,note:'Spela från hörn – löp in bakom försvar'},
+ accuracy:{a:[[20,54],[54,46],[82,51]],f:[[46,32]],p:[['P',20,54,54,46]],r:[['R',54,46,58,30]],sh:[[58,30,50,11]],zone:false,note:'Ta emot i fart – avsluta innan pressen kommer'},
+ rebound:{a:[[28,43],[53,20]],f:[[65,20]],sh:[[28,43,50,11],[55,18,50,11]],r:[['R',53,20,49,14]],note:'Skym – skott – vinn returen'},
+ transition:{a:[[20,77],[50,82],[82,77]],f:[[39,40],[64,40]],p:[['P',50,82,20,62],['P',20,62,77,42]],r:[['R',20,77,20,62],['R',82,77,77,42]],sh:[[77,42,50,11]],note:'Tre vågor framåt mot två backande försvarare'},
+ defense:{a:[[15,49],[85,47],[38,60],[63,62]],f:[[24,33],[76,33],[43,27],[60,27]],p:[['P',15,49,38,60]],r:[['R',24,33,18,40],['R',76,33,80,38]],zone:true,note:'Försvara centralt – tvinga skott från kanten'},
+ quickshot:{a:[[16,54],[83,49],[55,28]],p:[['P',16,54,83,49],['P',83,49,55,28]],sh:[[55,28,50,11]],note:'Sidbyte – inspel – direktskott'},
+ smallgame:{a:[[25,64],[48,58],[73,65]],f:[[30,41],[52,43],[75,40]],p:[['P',25,64,48,58]],r:[['R',48,58,52,33]],zone:true,note:'3 mot 3 – bonus för avslut i slottet'},
+ finsk21:{a:[[21,75],[79,75]],f:[[50,35]],p:[['P',21,75,79,58],['P',79,58,32,28]],r:[['R',21,75,32,28],['R',79,75,79,58]],sh:[[32,28,50,11]],note:'Bredd i 2 mot 1 – bind försvararen före pass'},
+ stege102021:{a:[[21,78],[75,78]],f:[[50,37]],p:[['P',21,78,75,52]],r:[['R',21,78,35,39],['R',75,78,75,52]],sh:[[35,39,50,11]],stages:true,note:'Steg 1: 1–0 • Steg 2: 2–0 • Steg 3: 2–1'},
+ oneonone:{a:[[12,31]],f:[[31,26]],r:[['R',12,31,30,20]],sh:[[30,20,50,11]],note:'Start från hörn – utmana inåt, försvara utsidan'},
+ twoontwo:{a:[[17,56],[73,50]],f:[[36,29],[65,27]],p:[['P',17,56,73,50]],sh:[[73,50,50,11]],r:[['R',17,56,48,18]],note:'Fortsätt efter första skottet och jaga returen'},
+ givego:{a:[[15,59],[37,38],[68,27]],p:[['P',15,59,37,38],['P',37,38,48,25]],r:[['R',15,59,48,25]],sh:[[48,25,50,11]],note:'Väggpass – löp i djupled – instick'},
+ crosscourt:{a:[[14,55],[85,35]],p:[['P',14,55,85,35]],sh:[[85,35,50,11]],r:[['R',85,35,75,24]],note:'Diagonal boll över planen – direktskott'},
+ shotblock:{a:[[20,43]],f:[[38,31]],sh:[[20,43,50,11]],p:[['B',38,31,79,59]],r:[['R',38,31,45,43]],note:'Täck skottlinjen säkert – förstapass ut'},
+ backcheck:{a:[[20,73],[51,79],[80,73]],f:[[33,34],[68,35],[77,91]],r:[['R',77,91,56,42],['R',20,73,22,37],['R',80,73,77,39]],p:[['P',51,79,20,59]],zone:true,note:'Jagande spelare tar mitten bakom 3 mot 2'},
+ pressbreak:{a:[[16,28],[48,40],[80,28]],f:[[23,20],[53,27]],p:[['P',16,28,48,40],['P',48,40,80,28]],r:[['R',80,28,77,60]],note:'Skapa trianglar – spela ur press längs sarg'},
+ faceoff:{a:[[43,51],[64,43]],f:[[57,51]],p:[['P',43,51,64,43]],r:[['R',64,43,61,28]],sh:[[61,28,50,11]],note:'Tekningsvinst bakåt – avslut från andra vågen'},
+ powerplay:{a:[[20,34],[50,47],[81,34],[26,19],[75,19]],f:[[37,25],[63,25],[36,37],[64,37]],p:[['P',20,34,50,47],['P',50,47,81,34],['P',81,34,75,19]],sh:[[75,19,50,11]],note:'5 mot 4 – flytta boxen innan avslut'},
+ penaltykill:{a:[[21,31],[79,31],[25,18],[75,18],[50,48]],f:[[39,30],[62,30],[39,20],[62,20]],p:[['P',21,31,50,48],['P',50,48,79,31]],r:[['R',39,30,44,37],['R',62,30,57,37]],zone:true,note:'4 mot 5 – boxen kompakt, klubbor i passväg'}
+ };
+ const c=layouts[d.id]||layouts.finsk21;
+ const X=x=>12+x*3.36,Y=y=>12+y*6.56;
+ const point=(x,y)=>`${X(x).toFixed(1)} ${Y(y).toFixed(1)}`;
+ const line=(x1,y1,x2,y2)=>`M${point(x1,y1)} L${point(x2,y2)}`;
+ const arrow=(p,k,i)=>{const col=k==='R'?'#176aa8':k==='S'?'#e16b20':k==='B'?'#7a4ea3':'#ddad22';const dash=k==='R'?'11 7':k==='P'?'3 6':k==='B'?'7 4':'none';return `<path d="${line(...p.slice(1))}" fill="none" stroke="${col}" stroke-width="${k==='S'?4.5:4}" stroke-dasharray="${dash}" stroke-linecap="round" marker-end="url(#mcarr${index}${k})"/>`;};
+ const player=(p,n,def)=>`<g><circle cx="${X(p[0])}" cy="${Y(p[1])}" r="14" fill="${def?'#ad3550':'#16815b'}" stroke="#fff" stroke-width="2.5"/><text x="${X(p[0])}" y="${Y(p[1])+4.5}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${def?'F':'A'}${n+1}</text></g>`;
+ const guide=`<rect x="12" y="12" width="336" height="656" rx="33" fill="#f4f8f5" stroke="#275e79" stroke-width="4"/><path d="M12 340 H348" stroke="#ce4b55" stroke-width="2.5"/><circle cx="180" cy="340" r="4" fill="#ce4b55"/>`+
+ [true,false].map(top=>{const rear=top?2.85:37.15,front=top?6.85:33.15,kr=top?3.5:36.5,kf=top?4.5:35.5;return `<rect x="${X(37.5)}" y="${Y(Math.min(rear,front))}" width="${X(62.5)-X(37.5)}" height="${Y(10)-Y(0)}" fill="none" stroke="#ce4b55" stroke-width="2.2"/><rect x="${X(43.75)}" y="${Y(Math.min(kr,kf))}" width="${X(56.25)-X(43.75)}" height="${Y(2.5)-Y(0)}" fill="none" stroke="#ce4b55" stroke-width="2"/><rect x="${X(46)}" y="${Y(top?kr-0.65:kr)}" width="${X(54)-X(46)}" height="${Y(1.625)-Y(0)}" fill="#dbeaf2" stroke="#244f6a" stroke-width="2"/>${[7.5,92.5].map(x=>`<circle cx="${X(x)}" cy="${Y(kr)}" r="3.5" fill="#ce4b55"/>`).join('')}`}).join('')+
+ [7.5,92.5].map(x=>`<circle cx="${X(x)}" cy="340" r="3.5" fill="#ce4b55"/>`).join('');
+ const defs=`<defs>${['R','P','S','B'].map(k=>`<marker id="mcarr${index}${k}" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M0 0 L7 3.5 L0 7" fill="none" stroke="${({R:'#176aa8',P:'#ddad22',S:'#e16b20',B:'#7a4ea3'})[k]}" stroke-width="1.5"/></marker>`).join('')}</defs>`;
+ const zone=c.zone?`<rect x="${X(34)}" y="${Y(15)}" width="${X(66)-X(34)}" height="${Y(35)-Y(15)}" fill="#e5c45a" fill-opacity=".18" stroke="#b18a1c" stroke-width="2" stroke-dasharray="7 5" rx="10"/>`:'';
+ const keeper=`<text x="180" y="${Y(6.3)}" font-size="11" text-anchor="middle" fill="#244f6a" font-weight="bold">MÅL</text>`;
+ const paths=[...(c.r||[]).map(p=>['R',...p.slice(1)]),...(c.p||[]),...(c.sh||[]).map(p=>['S',...p])].map((p,i)=>arrow(p,p[0],i)).join('');
+ return `<figure class="mc-bank-sketch mc-bank-realrink"><svg viewBox="0 0 360 680" role="img" aria-label="Innebandyplan och spelvägar för ${clean(d.title)}">${defs}${guide}${zone}${keeper}${paths}${(c.a||[]).map((p,i)=>player(p,i,false)).join('')}${(c.f||[]).map((p,i)=>player(p,i,true)).join('')}</svg><figcaption><strong>${clean(c.note)}</strong><span>🟢 A = anfallare · 🔴 F = försvarare · Blå = löpning · Gul = passning · Orange = avslut · Lila = utspel</span>${c.stages?'<span>Visar sista steget (2 mot 1); övriga steg följer beskrivningen.</span>':''}</figcaption></figure>`;
 }
+
 function init(){
  const host=document.getElementById('mcTrainingBankHost');if(!host)return;
  let root=document.getElementById('mcIndependentBank');if(root)return;
