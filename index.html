@@ -289,6 +289,30 @@ section.panel.mc-foldable>h2>.mc-fold-button{min-width:40px!important;min-height
  #mcViewNav button{font-size:12px!important}
 }
 </style>
+
+<style id="mc33-balanced-mobile-layout">
+/* Unified touch-size for all three main tabs */
+#mcViewNav{gap:7px!important;padding:6px!important;margin:8px 0 7px!important;grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#mcViewNav button{min-height:46px!important;padding:9px 5px!important;font-size:clamp(12px,3.3vw,15px)!important;line-height:1.15!important;white-space:normal!important}
+/* Same compact disclosure treatment for exercise editor and saved sessions. */
+.mc-training-disclosure{border:1px solid #405572;border-radius:10px;margin:7px 0;padding:4px 9px;background:rgba(30,49,75,.32)}
+.mc-training-disclosure>summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:5px 5px;cursor:pointer;list-style:none;font-size:clamp(13px,3.5vw,16px);font-weight:700;gap:10px}
+.mc-training-disclosure>summary::-webkit-details-marker{display:none}
+.mc-training-disclosure>summary::after{content:'▾';font-size:16px;color:#bfd3e7;flex:none}
+.mc-training-disclosure[open]>summary::after{content:'▴'}
+.mc-training-disclosure>section{margin:6px 0 0!important;border-radius:10px!important}
+#mcCustomBuilderDisclosure #mcCustomBuilder{padding:10px!important}
+#mcSavedPlansDisclosure #mcV3Planner{padding:10px!important}
+/* Sticky compact scoreboard: reserve enough width and height for three interactive elements. */
+body.compact-matchboard #clockPanel{box-sizing:border-box!important;max-width:100%!important;overflow:hidden!important;padding:7px 8px!important}
+body.compact-matchboard #clockPanel .matchClockLayout{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important;align-items:center!important;gap:6px!important;width:100%!important;box-sizing:border-box!important;min-width:0!important}
+body.compact-matchboard #clockPanel .matchClockLayout #finishMatch,
+body.compact-matchboard #clockPanel .matchClockLayout #startClock{width:100%!important;min-width:0!important;min-height:44px!important;box-sizing:border-box!important;padding:7px 2px!important;white-space:normal!important;overflow:hidden!important;line-height:1.1!important}
+body.compact-matchboard #clockPanel .matchClockLayout #clock{font-size:clamp(25px,6vw,36px)!important;white-space:nowrap!important;min-width:0!important;font-variant-numeric:tabular-nums!important}
+body.compact-matchboard #clockPanel .matchClockLayout #finishMatch::after,
+body.compact-matchboard #clockPanel .matchClockLayout #startClock::after{font-size:clamp(11px,2.8vw,14px)!important;white-space:normal!important}
+@media(max-width:365px){body.compact-matchboard #clockPanel .matchClockLayout{gap:3px!important}body.compact-matchboard #clockPanel .matchClockLayout #clock{font-size:23px!important}}
+</style>
 </head><body><main><h1 class="compactTitle"><img src="icon-192.png" alt="Öjaby Sport" class="mcClubLogo"> Matchcoach</h1><section class="panel" id="clockPanel"><div class="matchFieldsHidden" hidden><label>Motstånd <input id="opponent" placeholder="Motståndare"></label><label>Datum <input type="date" id="date"></label><label>Period <select id="period"><option>1</option><option>2</option><option>3</option></select></label></div><div class="row"><div class="clock" id="clock">00:00</div><button id="startClock">Starta klockan</button><button class="secondary" id="resetClock">Nollställ periodklockan</button><button type="button" class="danger" id="finishMatch">🏁 Avsluta match</button><label class="matchKindPicker" for="matchKind">Matchtyp <select id="matchKind" aria-label="Välj matchtyp"><option value="series">Seriematch</option><option value="internal">Internmatch</option></select></label><span class="tag" id="live">Ingen femma inne</span><label class="periodCorner" for="periodQuick">Period <select id="periodQuick" aria-label="Välj period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label></div><p class="help">Matchklockan räknar upp från 00:00 till 15:00 per period (3 × 15 minuter). När du trycker ”IN” avslutas föregående femmas byte och den nya femman startar direkt. Pausa klockan vid avblåsningar om du vill mäta effektiv speltid.</p></section><section class="panel" id="liveScoreboard" aria-label="Livetavla"><div class="scoreTop"><span>ÖJABY</span><span id="boardPeriod" hidden>PERIOD 1</span><span id="boardOpponent">MOTSTÅNDARE</span></div><div class="scoreNumbers"><span id="boardOwn">0</span><span class="scoreDash">–</span><span id="boardAway">0</span></div><div class="scoreTime" id="boardClock" hidden>00:00</div><div class="scorePenalties"><div><strong>ÖJABY · UTVISNINGAR</strong><div id="boardOwnPen">Inga aktiva</div></div><div><strong>MOTSTÅNDARE · UTVISNINGAR</strong><div id="boardOppPen">Inga aktiva</div></div></div><p class="help" style="margin-bottom:0">Utvisningstiderna följer matchklockan. Vid mål får du bekräfta eventuell kvittning.</p></section><nav id="mcViewNav" aria-label="Välj vy" role="tablist"><button id="mcMatchTab" type="button" role="tab" aria-selected="true">🏑 Match</button><button id="mcAnalysisTab" type="button" role="tab" aria-selected="false">📊 Analys</button><button id="mcTrainingTab" type="button" role="tab" aria-selected="false">📚 Träningsbank</button></nav><div id="mcViewHelp">Välj Match, Analys eller Träningsbank</div><div id="mcMatchView" class="mc-view-page" role="tabpanel"><details id="mcSafetyPanel" class="panel mc-safety-panel"><summary>💾 Spara · Ångra · Avbryt</summary><p class="help">Verktyg för aktuell match. Avbryt rensar inte spelarprofiler, femmor eller säsongsarkiv.</p><div id="mcSafetyActions"><button type="button" id="mcSaveNow" class="secondary">💾 Spara läge</button><button type="button" id="mcUndoEventTop" class="secondary">↶ Ångra händelse</button><button type="button" id="mcAbortMatch" class="danger">🗑️ Avbryt utan att spara</button><button type="button" id="mcUndoAbort" class="secondary" hidden>↶ Ångra avbruten match</button><div id="mcSafetyStatus" role="status" aria-live="polite"></div></div></details></div><div id="mcAnalysisView" class="mc-view-page" role="tabpanel" hidden></div><section class="panel" id="matchSquadPanel">
 <h2>👥 Matchtrupp – före match</h2>
 <p class="help">Välj vilka spelare som är uttagna till dagens match. Spelare som inte är med visas inte som val vid nya händelser eller byten. Dina sparade femmor behålls till nästa match.</p>
@@ -3198,7 +3222,12 @@ function init(){
  <div class="mc-cb-actions"><button id="cbUndo" type="button">↶ Ångra senaste</button><button id="cbClearPlan" type="button">Rensa skiss</button><button id="cbSave" type="button" style="background:#127e60">💾 Spara övning</button><button id="cbNew" type="button">Ny övning</button></div>
  <p class="mc-cb-hint">Du kan spara upp till 100 egna övningar på den här enheten. Exportera gärna en säkerhetskopia – webbläsardata kan raderas.</p>
  <div class="mc-cb-saved"><h4>Mina sparade övningar <span id="cbCount"></span></h4><div id="cbSaved"></div><div class="mc-cb-actions"><button id="cbExport" type="button">Exportera egna övningar</button><label style="display:inline-block">Importera JSON<input id="cbImport" type="file" accept=".json,application/json"></label></div></div>`;
- host.append(builder);
+ const builderDisclosure=document.createElement('details');
+ builderDisclosure.id='mcCustomBuilderDisclosure';
+ builderDisclosure.className='mc-training-disclosure';
+ builderDisclosure.innerHTML='<summary>✏️ Skapa egen övning</summary>';
+ host.append(builderDisclosure);
+ builderDisclosure.append(builder);
  const el=id=>builder.querySelector('#'+id);
  const fields=['Title','Minutes','Focus','Players','Equipment','Setup','Steps','Coach','Measure'];
  let objects=[],mode='attack',pending=null,editing=null;
@@ -3378,7 +3407,12 @@ function start(){
  <label class="mc-v3-full">Syfte / ledarens fokus<textarea id="mc3PlanFocus"></textarea></label><label class="mc-v3-full">Uppföljning efter träningen<textarea id="mc3PlanFollowup" placeholder="Vad fungerade och vad behöver vi jobba vidare med?"></textarea></label>
  </div><div class="mc-v3-actions"><button type="button" class="mc-v3-primary" id="mc3SavePlan">💾 Spara träningspass</button><button type="button" id="mc3NewPlan">Nytt pass</button><button type="button" id="mc3ExportPlans">Exportera träningspass</button><label>Importera pass <input type="file" id="mc3ImportPlans" accept=".json,application/json"></label></div>
  <div id="mc3PlanStatus" class="mc-v3-help"></div><h4>Mina sparade träningspass</h4><div id="mc3PlanList" class="mc-v3-list"></div>`;
- bank.append(plan);
+ const planDisclosure=document.createElement('details');
+ planDisclosure.id='mcSavedPlansDisclosure';
+ planDisclosure.className='mc-training-disclosure';
+ planDisclosure.innerHTML='<summary>📅 Sparade träningspass</summary>';
+ bank.append(planDisclosure);
+ planDisclosure.append(plan);
  let editing=null;
  q('mc3PlanDate').value=new Date().toLocaleDateString('sv-SE');
  // ISO date for type=date
@@ -3389,7 +3423,7 @@ function start(){
  q('mc3SavePlan').onclick=()=>{const bank=window.mcV3Bank;if(!bank)return alert('Träningsbanken har inte laddats.');const ds=bank.selected();const title=q('mc3PlanName').value.trim();if(!title)return alert('Ge träningspasset ett namn.');if(!ds.length)return alert('Markera minst en övning i träningsbanken ovan.');const all=plans(),id=editing||('plan-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));const data={id,title,date:q('mc3PlanDate').value,focus:q('mc3PlanFocus').value,followup:q('mc3PlanFollowup').value,ids:ds.map(d=>d.id),snapshot:ds,minutes:ds.reduce((s,d)=>s+(Number(d.minutes)||0),0)};const index=all.findIndex(x=>x.id===id);if(index>=0)all[index]=data;else all.push(data);if(!write(SKEY,all))return alert('Träningspasset kunde inte sparas. Exportera en säkerhetskopia.');editing=id;q('mc3PlanStatus').textContent='Sparat '+title+' · '+data.minutes+' minuter';planList();};
  q('mc3NewPlan').onclick=()=>{resetPlan();window.mcV3Bank?.choose([]);};
  function printPlan(p){const css='body{font:14px Arial;margin:26px;color:#17283a}h1{font-size:24px}section{border-top:1px solid #ccc;padding:12px 0}';const html=`<!doctype html><html lang="sv"><meta charset="utf-8"><title>${esc(p.title)}</title><style>${css}</style><h1>${esc(p.title)}</h1><p>${esc(p.date)} · ${p.minutes} minuter</p><p><b>Syfte:</b> ${esc(p.focus)}</p>${(p.snapshot||[]).map(d=>`<section><h2>${esc(d.title)} · ${esc(d.minutes)} min</h2><p><b>Organisation:</b> ${esc(d.setup)}</p><p><b>Genomförande:</b> ${esc(d.steps)}</p><p><b>Ledarfokus:</b> ${esc(d.coach)}</p></section>`).join('')}<h3>Uppföljning</h3><p>${esc(p.followup)}</p></html>`;const w=window.open('','_blank');if(!w){alert('Safari blockerade utskriftsfönstret. Tillåt popupfönster.');return;}w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),200);}
- q('mc3PlanList').onclick=e=>{const b=e.target.closest('button');if(!b)return;const all=plans(),i=Number(b.dataset.open??b.dataset.remove??b.dataset.print),p=all[i];if(!p)return;if(b.hasAttribute('data-remove')){if(!confirm('Ta bort träningspasset '+p.title+'?'))return;all.splice(i,1);if(write(SKEY,all)){if(editing===p.id)resetPlan();planList();}return;}if(b.hasAttribute('data-print'))return printPlan(p);editing=p.id;q('mc3PlanName').value=p.title;q('mc3PlanDate').value=p.date;q('mc3PlanFocus').value=p.focus||'';q('mc3PlanFollowup').value=p.followup||'';window.mcV3Bank?.choose(p.ids||[]);q('mc3PlanStatus').textContent='Öppnat: '+p.title+' · ändra och tryck Spara för att uppdatera.';};
+ q('mc3PlanList').onclick=e=>{const b=e.target.closest('button');if(!b)return;const all=plans(),i=Number(b.dataset.open??b.dataset.remove??b.dataset.print),p=all[i];if(!p)return;if(b.hasAttribute('data-remove')){if(!confirm('Ta bort träningspasset '+p.title+'?'))return;all.splice(i,1);if(write(SKEY,all)){if(editing===p.id)resetPlan();planList();}return;}if(b.hasAttribute('data-print'))return printPlan(p);planDisclosure.open=true;editing=p.id;q('mc3PlanName').value=p.title;q('mc3PlanDate').value=p.date;q('mc3PlanFocus').value=p.focus||'';q('mc3PlanFollowup').value=p.followup||'';window.mcV3Bank?.choose(p.ids||[]);q('mc3PlanStatus').textContent='Öppnat: '+p.title+' · ändra och tryck Spara för att uppdatera.';};
  q('mc3ExportPlans').onclick=()=>download('matchcoach_traningspass.json',JSON.stringify({format:'mc-v3-training-plans',plans:plans()},null,2));
  q('mc3ImportPlans').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(obj.format!=='mc-v3-training-plans'||!Array.isArray(obj.plans)||!obj.plans.every(p=>p.id&&p.title&&Array.isArray(p.ids)))throw Error();if(!confirm('Importera '+obj.plans.length+' träningspass?'))return;const m=new Map(plans().map(p=>[p.id,p]));obj.plans.forEach(p=>m.set(p.id,p));if(!write(SKEY,[...m.values()]))throw Error();planList();}catch{alert('Kunde inte importera träningspassen.')}finally{e.target.value=''}};
  planList();
