@@ -3018,7 +3018,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #mcCustomBuilder .mc-cb-toolbar button{margin:0;padding:9px 11px;font-size:13px;background:#30516e;border:1px solid #7498b6;min-height:40px}
 #mcCustomBuilder .mc-cb-toolbar button[aria-pressed="true"]{background:#148369;border-color:#59dfbd}
 #mcCustomBuilder .mc-cb-plan{max-width:330px;margin:12px auto;touch-action:manipulation;user-select:none}
-#mcCustomBuilder svg{width:100%;display:block;touch-action:manipulation;border-radius:12px}
+#mcCustomBuilder svg{width:100%;display:block;touch-action:none;border-radius:12px}
+#mcCustomBuilder .mc-cb-movable{cursor:grab}
+#mcCustomBuilder .mc-cb-movable:active{cursor:grabbing}
 #mcCustomBuilder .mc-cb-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 #mcCustomBuilder .mc-cb-actions button{margin:0}
 #mcCustomBuilder .mc-cb-hint{font-size:13px;color:#c5d9eb;margin:8px 0}
@@ -3049,27 +3051,29 @@ const rink=()=>{
  for(const x of [1.5,18.5])str+=`<circle cx="${MX(x)}" cy="340" r="3.5" fill="#ce4b55"/>`;
  return str;
 };
-const lineColors={run:'#176aa8',pass:'#d6a014',shot:'#e16b20'};
+const lineColors={run:'#176aa8',curve:'#176aa8',pass:'#d6a014',shot:'#e16b20'};
 function svg(objects=[],pending=null,mode='attack'){
  const defs='<defs>'+Object.entries(lineColors).map(([k,v])=>`<marker id="cb-${k}" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="${v}" stroke-width="1.2"/></marker>`).join('')+'</defs>';
  const objs=objects.map((o,i)=>{
   if(o.kind==='attack'||o.kind==='defense'||o.kind==='ball'){
    const x=px(o.x),y=py(o.y);
-   if(o.kind==='ball')return `<circle cx="${x}" cy="${y}" r="5.5" fill="#232a34" stroke="white" stroke-width="1.4"/>`;
+   if(o.kind==='ball')return `<g data-move-object="${i}" class="mc-cb-movable"><circle cx="${x}" cy="${y}" r="19" fill="transparent"/><circle cx="${x}" cy="${y}" r="5.5" fill="#232a34" stroke="white" stroke-width="1.4"/></g>`;
    const type=o.kind==='attack'?'A':'F';const fill=o.kind==='attack'?'#16815b':'#ad3550';const nr=objects.slice(0,i+1).filter(q=>q.kind===o.kind).length;
-   return `<circle cx="${x}" cy="${y}" r="13" fill="${fill}" stroke="white" stroke-width="2.5"/><text x="${x}" y="${y+4}" font-size="12" text-anchor="middle" fill="white" font-weight="bold">${type}${nr}</text>`;
+   return `<g data-move-object="${i}" class="mc-cb-movable"><circle cx="${x}" cy="${y}" r="21" fill="transparent"/><circle cx="${x}" cy="${y}" r="13" fill="${fill}" stroke="white" stroke-width="2.5"/><text x="${x}" y="${y+4}" font-size="12" text-anchor="middle" fill="white" font-weight="bold" pointer-events="none">${type}${nr}</text></g>`;
   }
   const col=lineColors[o.kind];if(!col)return '';
-  return `<path d="M${px(o.x1)} ${py(o.y1)} L${px(o.x2)} ${py(o.y2)}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${o.kind==='run'?'11 7':o.kind==='pass'?'4 6':'none'}" marker-end="url(#cb-${o.kind})"/>`;
+  const path=o.kind==='curve'?`M${px(o.x1)} ${py(o.y1)} Q${px(o.cx)} ${py(o.cy)} ${px(o.x2)} ${py(o.y2)}`:`M${px(o.x1)} ${py(o.y1)} L${px(o.x2)} ${py(o.y2)}`;
+  const handle=o.kind==='curve'?`<circle data-curve-handle="${i}" cx="${px(o.cx)}" cy="${py(o.cy)}" r="11" fill="#fff" fill-opacity=".16" stroke="#176aa8" stroke-width="2" stroke-dasharray="3 2"/><circle data-curve-handle="${i}" cx="${px(o.cx)}" cy="${py(o.cy)}" r="20" fill="transparent" />`:'';
+  return `<path data-curve-path="${i}" d="${path}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${['run','curve'].includes(o.kind)?'11 7':o.kind==='pass'?'4 6':'none'}" marker-end="url(#cb-${o.kind==='curve'?'run':o.kind})"/>${handle}`;
  }).join('');
- const ghost=pending?`<circle cx="${px(pending.x)}" cy="${py(pending.y)}" r="9" fill="none" stroke="#ebaa2a" stroke-width="3" stroke-dasharray="3 2"/>`:'';
+ const ghost=pending?`<g><circle cx="${px(pending.x)}" cy="${py(pending.y)}" r="9" fill="none" stroke="#ebaa2a" stroke-width="3" stroke-dasharray="3 2"/>${pending.end?`<circle cx="${px(pending.end.x)}" cy="${py(pending.end.y)}" r="9" fill="none" stroke="#ebaa2a" stroke-width="3" stroke-dasharray="3 2"/><path d="M${px(pending.x)} ${py(pending.y)} L${px(pending.end.x)} ${py(pending.end.y)}" stroke="#ebaa2a" stroke-width="2" stroke-dasharray="4 5"/>`:''}</g>`:'';
  return `<svg viewBox="0 0 360 680" role="img" aria-label="Redigerbar innebandyplan, tryck för att placera objekt" xmlns="http://www.w3.org/2000/svg">${defs}${rink()}${objs}${ghost}</svg>`;
 }
-window.mcRenderCustomDiagram=function(d){return `<figure class="mc-bank-sketch mc-bank-realrink">${svg(d.diagram||[])}<figcaption>Egen planskiss · Grönt = anfall · Rött = försvar · Blått = löpning · Gult = passning · Orange = skott</figcaption></figure>`};
+window.mcRenderCustomDiagram=function(d){return `<figure class="mc-bank-sketch mc-bank-realrink">${svg(d.diagram||[])}<figcaption>Egen planskiss · Grönt = anfall · Rött = försvar · Blått = rak/böjd löpning · Gult = passning · Orange = skott</figcaption></figure>`};
 function init(){
  const host=document.getElementById('mcIndependentBank');if(!host||document.getElementById('mcCustomBuilder'))return;
  const builder=document.createElement('section');builder.id='mcCustomBuilder';
- builder.innerHTML=`<h3>✏️ Skapa egen övning</h3><p class="mc-cb-hint">Bygg en egen övning och spara den till träningsbanken. Tryck på planen för att placera spelare och boll. För pilar: tryck först på start och sedan på slutpunkt.</p>
+ builder.innerHTML=`<h3>✏️ Skapa egen övning · Flyttbara spelare och böjda löpningar</h3><p class="mc-cb-hint">Bygg en egen övning och spara den till träningsbanken. Tryck på planen för att placera spelare och boll. För vanliga pilar: tryck start och slut. För böjd löpning: tryck start, slut och därefter en böjpunkt. Dra sedan den lilla blå cirkeln för att justera kurvan. Du kan även dra anfallare, försvarare och bollar till en ny position med fingret.</p>
  <div class="mc-cb-grid"><label>Övningens namn<input id="cbTitle" maxlength="90" placeholder="T.ex. Snabb spelvändning"></label><label>Tid (minuter)<input type="number" id="cbMinutes" min="1" max="120" value="12"></label>
  <label>Träningsfokus<input id="cbFocus" maxlength="100" placeholder="T.ex. spelvändningar"></label><label>Spelare / målvakter<input id="cbPlayers" maxlength="140" placeholder="T.ex. 2 mot 1 + målvakt"></label>
  <label class="mc-cb-full">Material<input id="cbEquipment" maxlength="180" placeholder="Bollar, koner och västar"></label>
@@ -3079,19 +3083,82 @@ function init(){
  <label class="mc-cb-full">Mätbart mål<input id="cbMeasure" placeholder="T.ex. 7 av 10 skott på mål"></label></div>
  <h4>Rita övningen</h4><div class="mc-cb-toolbar" id="cbTools"></div><p class="mc-cb-hint" id="cbHint" role="status"></p><div class="mc-cb-plan" id="cbPlan"></div>
  <div class="mc-cb-actions"><button id="cbUndo" type="button">↶ Ångra senaste</button><button id="cbClearPlan" type="button">Rensa skiss</button><button id="cbSave" type="button" style="background:#127e60">💾 Spara övning</button><button id="cbNew" type="button">Ny övning</button></div>
- <p class="mc-cb-hint">Övningar sparas lokalt på den här enheten. Exportera gärna en säkerhetskopia – webbläsardata kan raderas.</p>
+ <p class="mc-cb-hint">Du kan spara upp till 100 egna övningar på den här enheten. Exportera gärna en säkerhetskopia – webbläsardata kan raderas.</p>
  <div class="mc-cb-saved"><h4>Mina sparade övningar <span id="cbCount"></span></h4><div id="cbSaved"></div><div class="mc-cb-actions"><button id="cbExport" type="button">Exportera egna övningar</button><label style="display:inline-block">Importera JSON<input id="cbImport" type="file" accept=".json,application/json"></label></div></div>`;
  host.append(builder);
  const el=id=>builder.querySelector('#'+id);
  const fields=['Title','Minutes','Focus','Players','Equipment','Setup','Steps','Coach','Measure'];
  let objects=[],mode='attack',pending=null,editing=null;
- const tools=[['attack','🟢 Anfallare'],['defense','🔴 Försvarare'],['ball','⚫ Boll'],['run','🔵 Löpning'],['pass','🟡 Passning'],['shot','🟠 Skott']];
+ const tools=[['attack','🟢 Anfallare'],['defense','🔴 Försvarare'],['ball','⚫ Boll'],['run','🔵 Rak löpning'],['curve','〰️ Böjd löpning'],['pass','🟡 Passning'],['shot','🟠 Skott']];
  el('cbTools').innerHTML=tools.map(([k,n])=>`<button type="button" data-tool="${k}" aria-pressed="${k===mode}">${n}</button>`).join('');
- function render(){el('cbPlan').innerHTML=svg(objects,pending,mode);el('cbHint').textContent=pending?'Välj pilens slutpunkt på planen.':'Valt verktyg: '+tools.find(t=>t[0]===mode)[1]+'. '+(['run','pass','shot'].includes(mode)?'Tryck på startpunkten för pilen.':'Tryck där objektet ska placeras.');el('cbTools').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===mode)));}
+ function render(){
+  el('cbPlan').innerHTML=svg(objects,pending,mode);
+  el('cbHint').textContent=pending?(mode==='curve'&&pending.end?'Tryck på den punkt som kurvan ska böjas mot.':'Välj linjens slutpunkt på planen.'):'Valt verktyg: '+tools.find(t=>t[0]===mode)[1]+'. '+(mode==='curve'?'Tre tryck: start, slut och böjpunkt. Dra därefter den blå cirkeln för att ändra kurvan.':(['run','pass','shot'].includes(mode)?'Tryck på startpunkten och sedan slutpunkten.':'Tryck där objektet ska placeras.'));
+  el('cbTools').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===mode)));
+ }
  function reset(){editing=null;objects=[];pending=null;for(const f of fields)el('cb'+f).value=f==='Minutes'?'12':'';render();}
  function list(){const all=read();el('cbCount').textContent='('+all.length+')';el('cbSaved').innerHTML=all.map((d,i)=>`<div class="mc-cb-saved-row"><span><strong>${safe(d.title)}</strong> · ${Number(d.minutes)||0} min</span><button type="button" data-edit="${i}">Öppna / ändra</button><button type="button" data-delete="${i}">Ta bort</button></div>`).join('')||'<p class="mc-cb-hint">Inga egna övningar sparade ännu.</p>';}
  el('cbTools').addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(!b)return;mode=b.dataset.tool;pending=null;render();});
- el('cbPlan').addEventListener('click',e=>{const area=e.currentTarget.querySelector('svg');if(!area)return;const r=area.getBoundingClientRect();const x=clamp((e.clientX-r.left)/r.width*360,12,348);const y=clamp((e.clientY-r.top)/r.height*680,12,668);const point={x:Math.round((x-12)/3.36*10)/10,y:Math.round((y-12)/6.56*10)/10};if(['run','pass','shot'].includes(mode)){if(!pending)pending=point;else{objects.push({kind:mode,x1:pending.x,y1:pending.y,x2:point.x,y2:point.y});pending=null;}}else objects.push({kind:mode,...point});render();});
+ function getPoint(e,area){
+  const r=area.getBoundingClientRect();
+  // SVG preserves its 360:680 aspect ratio; account for letterboxing on different phones.
+  const scale=Math.min(r.width/360,r.height/680);
+  const ox=(r.width-360*scale)/2,oy=(r.height-680*scale)/2;
+  const x=clamp(((e.clientX-r.left)-ox)/scale,12,348);
+  const y=clamp(((e.clientY-r.top)-oy)/scale,12,668);
+  return {x:Math.round((x-12)/3.36*10)/10,y:Math.round((y-12)/6.56*10)/10};
+ }
+ let dragging=null,dragDidMove=false,suppressClick=false;
+ el('cbPlan').addEventListener('pointerdown',e=>{
+  const handle=e.target.closest('[data-curve-handle]');
+  const movable=e.target.closest('[data-move-object]');
+  const element=handle||movable;
+  if(!element)return;
+  const i=Number(element.getAttribute(handle?'data-curve-handle':'data-move-object'));
+  if(!objects[i]||(handle?objects[i].kind!=='curve':!['attack','defense','ball'].includes(objects[i].kind)))return;
+  e.preventDefault();
+  const area=e.currentTarget.querySelector('svg');
+  dragging={index:i,pointerId:e.pointerId,type:handle?'curve':'object',start:getPoint(e,area),fromX:objects[i].x,fromY:objects[i].y};
+  dragDidMove=false;
+  area.setPointerCapture(e.pointerId);
+ });
+ el('cbPlan').addEventListener('pointermove',e=>{
+  if(!dragging||dragging.pointerId!==e.pointerId)return;
+  e.preventDefault();
+  const area=e.currentTarget.querySelector('svg'),p=getPoint(e,area),o=objects[dragging.index];
+  if(Math.abs(p.x-dragging.start.x)+Math.abs(p.y-dragging.start.y)>0.5)dragDidMove=true;
+  if(dragging.type==='object'){
+   o.x=p.x;o.y=p.y;
+   const group=area.querySelector('[data-move-object="'+dragging.index+'"]');
+   if(group){group.setAttribute('transform',`translate(${px(p.x)-px(dragging.fromX)} ${py(p.y)-py(dragging.fromY)})`);}
+  }else{
+   o.cx=p.x;o.cy=p.y;
+   area.querySelectorAll('[data-curve-handle="'+dragging.index+'"]').forEach(h=>{h.setAttribute('cx',px(p.x));h.setAttribute('cy',py(p.y));});
+   const path=area.querySelector('[data-curve-path="'+dragging.index+'"]');
+   if(path)path.setAttribute('d',`M${px(o.x1)} ${py(o.y1)} Q${px(o.cx)} ${py(o.cy)} ${px(o.x2)} ${py(o.y2)}`);
+  }
+ });
+ function finishDrag(e){
+  if(!dragging||(e&&dragging.pointerId!==e.pointerId))return;
+  suppressClick=true;dragging=null;render();
+ }
+ el('cbPlan').addEventListener('pointerup',finishDrag);
+ el('cbPlan').addEventListener('pointercancel',finishDrag);
+ el('cbPlan').addEventListener('click',e=>{
+  if(suppressClick){suppressClick=false;return;}
+  if(e.target.closest('[data-curve-handle],[data-move-object]'))return;
+  const area=e.currentTarget.querySelector('svg');if(!area)return;
+  const point=getPoint(e,area);
+  if(mode==='curve'){
+   if(!pending)pending=point;
+   else if(!pending.end)pending={...pending,end:point};
+   else{objects.push({kind:'curve',x1:pending.x,y1:pending.y,x2:pending.end.x,y2:pending.end.y,cx:point.x,cy:point.y});pending=null;}
+  }else if(['run','pass','shot'].includes(mode)){
+   if(!pending)pending=point;
+   else{objects.push({kind:mode,x1:pending.x,y1:pending.y,x2:point.x,y2:point.y});pending=null;}
+  }else objects.push({kind:mode,...point});
+  render();
+ });
  el('cbUndo').onclick=()=>{if(pending)pending=null;else objects.pop();render()};
  el('cbClearPlan').onclick=()=>{if(confirm('Rensa alla markeringar i skissen?')){objects=[];pending=null;render()}};
  el('cbNew').onclick=()=>{if(confirm('Börja med en tom övning? Osparade ändringar försvinner.'))reset()};
@@ -3099,7 +3166,7 @@ function init(){
   const title=el('cbTitle').value.trim(),min=Number(el('cbMinutes').value);
   if(!title)return alert('Ge övningen ett namn.');if(!(min>=1&&min<=120))return alert('Ange tid mellan 1 och 120 minuter.');
   const data={id:editing||'own-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),custom:true,title,minutes:min,focus:el('cbFocus').value.trim()||'Eget träningsfokus',players:el('cbPlayers').value.trim()||'Valfri bemanning',equipment:el('cbEquipment').value.trim(),setup:el('cbSetup').value.trim(),steps:el('cbSteps').value.trim(),coach:el('cbCoach').value.trim(),measure:el('cbMeasure').value.trim(),diagram:objects.map(x=>({...x}))};
-  const all=read(),i=all.findIndex(d=>d.id===data.id);if(i>=0)all[i]=data;else all.push(data);
+  const all=read(),i=all.findIndex(d=>d.id===data.id);if(i>=0)all[i]=data;else {if(all.length>=100)return alert('Max 100 egna övningar. Exportera och ta bort någon övning innan du sparar fler.');all.push(data);}
   if(store(all)){editing=data.id;list();alert('Övningen är sparad och finns nu i träningsbanken!');}
  };
  el('cbSaved').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=read(),i=Number(b.dataset.edit??b.dataset.delete);if(!a[i])return;if(b.hasAttribute('data-delete')){if(confirm('Ta bort övningen "'+a[i].title+'"?')){const removedId=a[i].id;a.splice(i,1);if(store(a)){if(editing===removedId)reset();list();}}}else{const d=a[i];editing=d.id;for(const f of fields){const k=f[0].toLowerCase()+f.slice(1);el('cb'+f).value=d[k]??'';}objects=(d.diagram||[]).map(x=>({...x}));pending=null;render();builder.scrollIntoView({behavior:'smooth',block:'start'});}});
