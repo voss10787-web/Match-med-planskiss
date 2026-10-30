@@ -2008,7 +2008,7 @@ const byId=id=>document.getElementById(id);
 const main=document.querySelector('main');
 const match=byId('mcMatchView'),analysis=byId('mcAnalysisView');
 let training=byId('mcTrainingView');const trainingBtn=byId('mcTrainingTab');
-if(!training){training=document.createElement('section');training.id='mcTrainingView';training.className='mc-view-page';training.setAttribute('role','tabpanel');training.hidden=true;training.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Bygg ditt eget 75-minuterspass. • Flikfix 26-10-30 B</p><div id="mcTrainingBankHost"></div></section>';analysis.after(training);}
+if(!training){training=document.createElement('section');training.id='mcTrainingView';training.className='mc-view-page';training.setAttribute('role','tabpanel');training.hidden=true;training.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Bygg ditt eget 75-minuterspass. • Flikfix 26-10-30 C</p><div id="mcTrainingBankHost"></div></section>';analysis.after(training);}
 const nav=byId('mcViewNav'),matchBtn=byId('mcMatchTab'),analysisBtn=byId('mcAnalysisTab');
 if(!main||!match||!analysis||!nav)return;
 // Place tab navigation at the bottom without rebuilding buttons or gesture handlers.
@@ -2030,7 +2030,7 @@ match.hidden=current!=='match';analysis.hidden=current!=='analysis';if(training)
 matchBtn.setAttribute('aria-selected',String(current==='match'));
 analysisBtn.setAttribute('aria-selected',String(current==='analysis'));
 if(trainingBtn)trainingBtn.setAttribute('aria-selected',String(current==='training'));
-if(current==='training'){const host=byId('mcTrainingBankHost');const bank=byId('smDrillBank');if(host&&bank&&bank.parentNode!==host)host.appendChild(bank);if(typeof window.mcRenderTrainingBank==='function'&&!byId('smDrillSearch'))window.mcRenderTrainingBank();}
+if(current==='training'){const host=byId('mcTrainingBankHost');const bank=byId('smDrillBank');if(host&&bank&&bank.parentNode!==host)host.appendChild(bank);if(typeof window.mcRenderTrainingBank==='function' && !byId('smDrillSearch'))window.mcRenderTrainingBank();}
 if(goTop)window.scrollTo({top:0,behavior:'smooth'});
 updateBack();
 }
@@ -2552,6 +2552,8 @@ function smRenderDrillBank(focus,players,goalies){const root=$('smDrillBank');if
  root.addEventListener('change',e=>{const id=e.target?.getAttribute('data-pick-drill');if(!id)return;e.target.checked?smCustomDrills.add(id):smCustomDrills.delete(id);root.querySelectorAll('[data-pick-drill]').forEach(el=>{if(el.getAttribute('data-pick-drill')===id)el.checked=smCustomDrills.has(id)});own()});
  root.addEventListener('click',e=>{const id=e.target?.getAttribute('data-remove-drill');if(id){smCustomDrills.delete(id);root.querySelectorAll('[data-pick-drill]').forEach(el=>{if(el.getAttribute('data-pick-drill')===id)el.checked=false});own()}if(e.target?.id==='smClearOwnTraining'){smCustomDrills.clear();root.querySelectorAll('[data-pick-drill]').forEach(el=>el.checked=false);own()}if(e.target?.id==='smCopyOwnTraining'){const chosen=smDrillBank.filter(d=>smCustomDrills.has(d.id));const content='MITT TRÄNINGSPASS\n'+chosen.map(d=>`${d.minutes} min – ${d.title}\nOrganisation: ${d.setup}\nGenomförande: ${d.steps}\nLedarfokus: ${d.coach}\n`).join('\n')+`\nTotalt: ${chosen.reduce((s,d)=>s+d.minutes,0)} minuter`;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(content).catch(()=>window.prompt('Kopiera passet:',content));else window.prompt('Kopiera passet:',content)}});
  search.addEventListener('input',refresh);filter.addEventListener('change',refresh);own();}
+// Expose the full 20-drill renderer to the standalone training tab.
+window.mcRenderTrainingBank=function(){smRenderDrillBank('Matchlikt beslutsfattande',12,2);};
 
 let smChosenPlayers=12,smChosenGoalies=2;
 // Training-session notes are intentionally memory-only: no production or cross-match writes.
@@ -2890,7 +2892,7 @@ function ready(){
  if(!view){
    view=document.createElement('section');
    view.id='mcTrainingView';view.className='mc-view-page';view.setAttribute('role','tabpanel');view.hidden=true;
-   view.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Välj övningar och bygg ditt eget 75-minuterspass. • Flikfix 26-10-30 B</p><div id="mcTrainingBankHost"></div></section>';
+   view.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Välj övningar och bygg ditt eget 75-minuterspass. • Flikfix 26-10-30 C</p><div id="mcTrainingBankHost"></div></section>';
    analysis.after(view);
  }
  const host=document.getElementById('mcTrainingBankHost');
