@@ -2651,8 +2651,9 @@ $('smFilter').onchange=drawAnalysis;$('smPeriodFilter').onchange=drawAnalysis;$(
   // Position directly above Straffslag when that section belongs to Match.
   if(penalty&&match.contains(penalty))penalty.before(matchSlot);
   else match.appendChild(matchSlot);
-  // In Analys keep Shotmap above other analysis panels.
-  analysis.insertBefore(analysisSlot,analysis.firstChild);
+  // Keep Shotmap near the end of Analys, matching its position near Straffslag in Match.
+  // The same panel moves between views; no duplicated event handlers or statistics.
+  analysis.appendChild(analysisSlot);
   function sync(){
    const active=analysis.hidden?'match':'analysis';
    const slot=active==='analysis'?analysisSlot:matchSlot;
