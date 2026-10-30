@@ -2636,4 +2636,36 @@ $('smFilter').onchange=drawAnalysis;$('smPeriodFilter').onchange=drawAnalysis;$(
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
-</script></body></html>
+</script><script id="mc-shotmap-dual-view-placement">
+/* One live Shotmap instance, presented in both tabs without duplicating IDs or state. */
+(function(){
+ 'use strict';
+ function init(){
+  const match=document.getElementById('mcMatchView');
+  const analysis=document.getElementById('mcAnalysisView');
+  const shotmap=document.getElementById('smAnalysisPanel');
+  const penalty=document.getElementById('penaltyShotPanel');
+  if(!match||!analysis||!shotmap)return;
+  const matchSlot=document.createElement('div');matchSlot.id='mcShotmapMatchSlot';
+  const analysisSlot=document.createElement('div');analysisSlot.id='mcShotmapAnalysisSlot';
+  // Position directly above Straffslag when that section belongs to Match.
+  if(penalty&&match.contains(penalty))penalty.before(matchSlot);
+  else match.appendChild(matchSlot);
+  // In Analys keep Shotmap above other analysis panels.
+  analysis.insertBefore(analysisSlot,analysis.firstChild);
+  function sync(){
+   const active=analysis.hidden?'match':'analysis';
+   const slot=active==='analysis'?analysisSlot:matchSlot;
+   if(shotmap.parentNode!==slot)slot.appendChild(shotmap);
+  }
+  const observer=new MutationObserver(sync);
+  observer.observe(analysis,{attributes:true,attributeFilter:['hidden','style','class']});
+  observer.observe(match,{attributes:true,attributeFilter:['hidden','style','class']});
+  document.getElementById('mcMatchTab')?.addEventListener('click',()=>queueMicrotask(sync));
+  document.getElementById('mcAnalysisTab')?.addEventListener('click',()=>queueMicrotask(sync));
+  sync();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+</body></html>
