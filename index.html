@@ -981,7 +981,7 @@ function editSelected(remove){const i=Number(el('editEventSelect').value);if(!Nu
 if(e.shotmap){
  const shotEvent=['Mål framåt','Mål bakåt','Skott på mål','Skott utanför','Skott i täck','Täckt skott','Motståndarskott på mål'].includes(type);
  if(!shotEvent)delete e.shotmap;
- else e.shotmap.team=/bakåt|motståndar/i.test(type)?'opp':'own';
+ else e.shotmap.team=/bakåt|motståndar|^Täckt skott$/i.test(type)?'opp':'own';
 }
 e.period=el('editPeriod').value;e.time=Number(m[1])*60+Number(m[2]);e.scorer=scorer;e.assist=type==='Mål framåt'?assist:'';if(type==='Mål framåt'||type==='Mål bakåt'){const at=matchTime(e.period,e.time);e.mode=penaltyMode(at);const seg=state.shifts.find(sh=>String(sh.period)===String(e.period)&&sh.start<=e.time&&sh.end>=e.time)||(state.active&&String(state.active.period)===String(e.period)&&state.active.start<=e.time?state.active:null);e.players=seg?[...seg.players]:[];if(type==='Mål bakåt'&&Array.isArray(state.goalieChanges)){const changes=state.goalieChanges.filter(g=>matchTime(g.period,g.time)<=at).sort((a,b)=>matchTime(a.period,a.time)-matchTime(b.period,b.time));if(changes.length)e.goalie=changes.at(-1).in;else if(state.goalieChanges.length)e.goalie=state.goalieChanges[0].out||e.goalie;else e.goalie=state.goalkeeper||e.goalie;}}}
 rebuildPenaltyEffects();save();render();el('editEventSelect').value=String(Math.min(i,state.events.length-1));updateEditor()}
@@ -2327,16 +2327,16 @@ function smUpdateFocus(){
  draw(rink,[],selected);
 }
 function savePrefs(){prefs={side:$('smSide').value,attack:$('smAttack').value};mcTestStorage.setItem(prefsKey,JSON.stringify(prefs));if(pending)smFocusTop=pending.team==='own'?smOwnTop():!smOwnTop();updateGoalLabels();smUpdateFocus();drawAnalysis()}$('smSide').onchange=savePrefs;$('smAttack').onchange=savePrefs;
-function teamType(btn){const id=btn.id,txt=(btn.textContent||'').toLowerCase();if(['quickGoal','quickAgainst','quickShotOn','quickShotOff','quickShotBlocked','quickOppShot','shotOn','shotOff','shotBlocked','shotAgainst'].includes(id)||btn.closest('.teamQuickGroup')&&(/mål|skott/.test(txt))){if(/utvisning/.test(txt))return null;return {team:btn.closest('.teamQuickGroup.opp')||['quickAgainst','quickOppShot','shotAgainst'].includes(id)?'opp':'own',type:txt.trim()||id};}return null}
+function teamType(btn){const id=btn.id,txt=(btn.textContent||'').toLowerCase();if(['quickGoal','quickAgainst','quickShotOn','quickShotOff','quickShotBlocked','quickBlock','quickOppShot','shotOn','shotOff','shotBlocked','shotBlock','shotAgainst'].includes(id)||btn.closest('.teamQuickGroup')&&(/mål|skott/.test(txt))){if(/utvisning/.test(txt))return null;return {team:btn.closest('.teamQuickGroup.opp')||['quickAgainst','quickOppShot','shotAgainst'].includes(id)?'opp':'own',type:txt.trim()||id};}return null}
 function eventMatch(e,p){
  if(!e||e.penaltyShot||e.shotmap)return false;
  const t=String(e.type||'').toLowerCase(), id=p.button?.id||'', label=String(p.type||'').toLowerCase();
- const opp=/bakåt|motståndar/.test(t);
+ const opp=/bakåt|motståndar/.test(t)||t==='täckt skott';
  if((p.team==='opp')!==opp)return false;
  // A goal click must never attach its position to a different shot event.
  if(/goal|against/i.test(id)||/mål/.test(label)&&!/skott/.test(label))return /mål framåt|mål bakåt/.test(t);
  // Match the actual shot outcome, not just any shot by the same team.
- if(/blocked/i.test(id)||/täck/.test(label))return /täck/.test(t);
+ if(/blocked|block/i.test(id)||/täck/.test(label))return /täck/.test(t);
  if(/off/i.test(id)||/utanför/.test(label))return /utanför/.test(t);
  if(/on|oppShot|shotAgainst/i.test(id)||/på mål/.test(label))return /skott/.test(t)&&!/utanför|täck/.test(t);
  return /skott/.test(t);
