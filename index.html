@@ -2008,7 +2008,7 @@ const byId=id=>document.getElementById(id);
 const main=document.querySelector('main');
 const match=byId('mcMatchView'),analysis=byId('mcAnalysisView');
 let training=byId('mcTrainingView');const trainingBtn=byId('mcTrainingTab');
-if(!training){training=document.createElement('section');training.id='mcTrainingView';training.className='mc-view-page';training.setAttribute('role','tabpanel');training.hidden=true;training.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Bygg ditt eget 75-minuterspass. • Planskisser v2 · 26-10-30</p><div id="mcTrainingBankHost"></div></section>';analysis.after(training);}
+if(!training){training=document.createElement('section');training.id='mcTrainingView';training.className='mc-view-page';training.setAttribute('role','tabpanel');training.hidden=true;training.innerHTML='<section class="panel"><h2>📚 Träningsbank</h2><p class="help">20 övningar med planskisser. Bygg ditt eget 75-minuterspass. • Planskisser v3 26-10-30 • Målfix E · 26-10-30</p><div id="mcTrainingBankHost"></div></section>';analysis.after(training);}
 const nav=byId('mcViewNav'),matchBtn=byId('mcMatchTab'),analysisBtn=byId('mcAnalysisTab');
 if(!main||!match||!analysis||!nav)return;
 // Place tab navigation at the bottom without rebuilding buttons or gesture handlers.
@@ -2935,26 +2935,26 @@ function diagram(d,index){
  // real 40 x 20 m floorball court, with the attacking goal at the top.
  // A: attacker, D: defender, G: keeper. Path: R=run, P=pass, S=shot, B=ball exit.
  const layouts={
- slotdef:{a:[[15,35],[85,35],[51,46]],f:[[38,28],[62,28],[50,19]],p:[['P',15,35,51,46],['P',51,46,85,35]],r:[['R',51,46,50,22]],zone:true,note:'Håll insidan – styr anfallet mot sargen'},
- slotattack:{a:[[13,38],[42,52],[85,45]],f:[[39,30],[65,28]],p:[['P',13,38,42,52],['P',42,52,64,26]],r:[['R',85,45,64,26]],sh:[[64,26,50,11]],zone:true,note:'Spela från hörn – löp in bakom försvar'},
- accuracy:{a:[[20,54],[54,46],[82,51]],f:[[46,32]],p:[['P',20,54,54,46]],r:[['R',54,46,58,30]],sh:[[58,30,50,11]],zone:false,note:'Ta emot i fart – avsluta innan pressen kommer'},
- rebound:{a:[[28,43],[53,20]],f:[[65,20]],sh:[[28,43,50,11],[55,18,50,11]],r:[['R',53,20,49,14]],note:'Skym – skott – vinn returen'},
- transition:{a:[[20,77],[50,82],[82,77]],f:[[39,40],[64,40]],p:[['P',50,82,20,62],['P',20,62,77,42]],r:[['R',20,77,20,62],['R',82,77,77,42]],sh:[[77,42,50,11]],note:'Tre vågor framåt mot två backande försvarare'},
- defense:{a:[[15,49],[85,47],[38,60],[63,62]],f:[[24,33],[76,33],[43,27],[60,27]],p:[['P',15,49,38,60]],r:[['R',24,33,18,40],['R',76,33,80,38]],zone:true,note:'Försvara centralt – tvinga skott från kanten'},
- quickshot:{a:[[16,54],[83,49],[55,28]],p:[['P',16,54,83,49],['P',83,49,55,28]],sh:[[55,28,50,11]],note:'Sidbyte – inspel – direktskott'},
- smallgame:{a:[[25,64],[48,58],[73,65]],f:[[30,41],[52,43],[75,40]],p:[['P',25,64,48,58]],r:[['R',48,58,52,33]],zone:true,note:'3 mot 3 – bonus för avslut i slottet'},
- finsk21:{a:[[21,75],[79,75]],f:[[50,35]],p:[['P',21,75,79,58],['P',79,58,32,28]],r:[['R',21,75,32,28],['R',79,75,79,58]],sh:[[32,28,50,11]],note:'Bredd i 2 mot 1 – bind försvararen före pass'},
- stege102021:{a:[[21,78],[75,78]],f:[[50,37]],p:[['P',21,78,75,52]],r:[['R',21,78,35,39],['R',75,78,75,52]],sh:[[35,39,50,11]],stages:true,note:'Steg 1: 1–0 • Steg 2: 2–0 • Steg 3: 2–1'},
- oneonone:{a:[[12,31]],f:[[31,26]],r:[['R',12,31,30,20]],sh:[[30,20,50,11]],note:'Start från hörn – utmana inåt, försvara utsidan'},
- twoontwo:{a:[[17,56],[73,50]],f:[[36,29],[65,27]],p:[['P',17,56,73,50]],sh:[[73,50,50,11]],r:[['R',17,56,48,18]],note:'Fortsätt efter första skottet och jaga returen'},
- givego:{a:[[15,59],[37,38],[68,27]],p:[['P',15,59,37,38],['P',37,38,48,25]],r:[['R',15,59,48,25]],sh:[[48,25,50,11]],note:'Väggpass – löp i djupled – instick'},
- crosscourt:{a:[[14,55],[85,35]],p:[['P',14,55,85,35]],sh:[[85,35,50,11]],r:[['R',85,35,75,24]],note:'Diagonal boll över planen – direktskott'},
- shotblock:{a:[[20,43]],f:[[38,31]],sh:[[20,43,50,11]],p:[['B',38,31,79,59]],r:[['R',38,31,45,43]],note:'Täck skottlinjen säkert – förstapass ut'},
- backcheck:{a:[[20,73],[51,79],[80,73]],f:[[33,34],[68,35],[77,91]],r:[['R',77,91,56,42],['R',20,73,22,37],['R',80,73,77,39]],p:[['P',51,79,20,59]],zone:true,note:'Jagande spelare tar mitten bakom 3 mot 2'},
- pressbreak:{a:[[16,28],[48,40],[80,28]],f:[[23,20],[53,27]],p:[['P',16,28,48,40],['P',48,40,80,28]],r:[['R',80,28,77,60]],note:'Skapa trianglar – spela ur press längs sarg'},
- faceoff:{a:[[43,51],[64,43]],f:[[57,51]],p:[['P',43,51,64,43]],r:[['R',64,43,61,28]],sh:[[61,28,50,11]],note:'Tekningsvinst bakåt – avslut från andra vågen'},
- powerplay:{a:[[20,34],[50,47],[81,34],[26,19],[75,19]],f:[[37,25],[63,25],[36,37],[64,37]],p:[['P',20,34,50,47],['P',50,47,81,34],['P',81,34,75,19]],sh:[[75,19,50,11]],note:'5 mot 4 – flytta boxen innan avslut'},
- penaltykill:{a:[[21,31],[79,31],[25,18],[75,18],[50,48]],f:[[39,30],[62,30],[39,20],[62,20]],p:[['P',21,31,50,48],['P',50,48,79,31]],r:[['R',39,30,44,37],['R',62,30,57,37]],zone:true,note:'4 mot 5 – boxen kompakt, klubbor i passväg'}
+ slotdef:{a:[[17,39],[84,40],[53,49]],f:[[37,27],[64,27],[51,19]],p:[['P',17,39,53,49],['P',53,49,84,40]],r:[['R',51,19,53,29],['R',64,27,77,31]],zone:true,note:'Försvaret stänger mitten och leder bollen mot sargen',ball:[17,39]},
+ slotattack:{a:[[15,29],[33,48],[85,40]],f:[[39,24],[65,24]],p:[['P',15,29,33,48],['P',33,48,57,20]],r:[['R',85,40,57,20]],sh:[[57,20,50,5.4]],zone:true,note:'Från hörnet till stödspelare – inlöpning och avslut',ball:[15,29]},
+ accuracy:{a:[[16,55],[49,43],[82,50]],f:[[58,33]],p:[['P',16,55,49,43]],r:[['R',49,43,43,31],['R',58,33,50,29]],sh:[[43,31,50,5.4]],note:'Passning i fart – snabbt skott innan försvararen hinner fram',ball:[16,55]},
+ rebound:{a:[[22,43],[50,17]],f:[[63,19]],sh:[[22,43,50,5.4]],r:[['R',50,17,51,11],['R',63,19,55,14]],note:'Skytt på kanten – skymning och löpning på retur',ball:[22,43]},
+ transition:{a:[[15,74],[50,79],[85,74]],f:[[39,37],[64,37]],p:[['P',50,79,15,74],['P',15,55,82,39]],r:[['R',15,74,15,55],['R',85,74,82,39],['R',50,79,50,57]],sh:[[82,39,50,5.4]],note:'Tre i bredd – förflytta försvarare och avsluta mot två',ball:[50,79]},
+ defense:{a:[[15,45],[86,45],[35,53],[65,53]],f:[[28,31],[71,31],[41,23],[59,23]],p:[['P',15,45,35,53],['P',35,53,86,45]],r:[['R',28,31,21,39],['R',71,31,79,39]],zone:true,note:'Fyra försvarare håller insida och styr ut bollföraren',ball:[15,45]},
+ quickshot:{a:[[15,53],[85,49],[55,25]],p:[['P',15,53,85,49],['P',85,49,55,25]],sh:[[55,25,50,5.4]],note:'Sidbyte – inspel i slottet – direktskott',ball:[15,53]},
+ smallgame:{a:[[22,62],[51,57],[78,62]],f:[[30,39],[51,42],[74,38]],p:[['P',22,62,51,57]],r:[['R',51,57,57,32]],sh:[[57,32,50,5.4]],zone:true,note:'Smålagsspel med bonus när avslutet tas centralt',ball:[22,62]},
+ finsk21:{a:[[22,73],[80,72]],f:[[52,35]],p:[['P',22,53,80,49]],r:[['R',22,73,22,53],['R',80,72,80,49],['R',22,53,43,29]],sh:[[80,49,50,5.4]],note:'2 mot 1: driv mot backen – spela över för avslut',ball:[22,73]},
+ stege102021:{a:[[23,75],[78,75]],f:[[51,36]],p:[['P',23,55,78,48]],r:[['R',23,75,23,55],['R',78,75,78,48]],sh:[[78,48,50,5.4]],stages:true,note:'Steg 3: två anfallare mot en back (steg 1–2 visas nedan)',ball:[23,75]},
+ oneonone:{a:[[13,28]],f:[[32,24]],r:[['R',13,28,31,18],['R',32,24,39,23]],sh:[[31,18,50,5.4]],note:'Anfall från hörn – utmana back och skapa egen skottvinkel',ball:[13,28]},
+ twoontwo:{a:[[21,50],[78,46]],f:[[40,27],[65,27]],p:[['P',21,50,78,46]],r:[['R',21,50,48,16],['R',78,46,65,22]],sh:[[78,46,50,5.4]],note:'2 mot 2: avslut följs av kamp om returen',ball:[21,50]},
+ givego:{a:[[15,51],[36,35],[70,29]],p:[['P',15,51,36,35],['P',36,35,50,22]],r:[['R',15,51,50,22]],sh:[[50,22,50,5.4]],note:'Passa stödet – löp förbi – få tillbaka bollen i djupet',ball:[15,51]},
+ crosscourt:{a:[[16,48],[84,33]],p:[['P',16,48,84,33]],r:[['R',84,33,75,22]],sh:[[75,22,50,5.4]],note:'Lång diagonalpassning till motsatt kant och direktskott',ball:[16,48]},
+ shotblock:{a:[[22,43]],f:[[39,30]],sh:[[22,43,39,30]],p:[['B',39,30,79,51]],r:[['R',39,30,49,43]],note:'Försvararen täcker skottlinjen och spelar ur pressen',ball:[22,43]},
+ backcheck:{a:[[20,74],[51,77],[81,74]],f:[[34,33],[67,33],[78,91]],r:[['R',78,91,51,42],['R',20,74,27,43],['R',81,74,75,42]],p:[['P',51,77,27,43]],zone:true,note:'Jagande försvarare tar hemjobb centralt bakom 3 mot 2',ball:[51,77]},
+ pressbreak:{a:[[17,80],[50,73],[82,80],[50,91]],f:[[23,66],[76,66],[51,61],[51,52]],p:[['P',50,91,17,80],['P',17,80,50,73],['P',50,73,82,80]],r:[['R',82,80,84,48]],note:'Uppspel från egen planhalva: triangel och sidbyte ur press',ball:[50,91]},
+ faceoff:{a:[[43,28],[71,39],[36,43]],f:[[57,28],[62,20]],p:[['P',43,28,36,43],['P',36,43,71,39]],sh:[[71,39,50,5.4]],note:'Vinn offensiv tekning bakåt och spela till skott',ball:[43,28]},
+ powerplay:{a:[[18,32],[50,47],[83,32],[27,17],[74,17]],f:[[38,24],[62,24],[38,36],[62,36]],p:[['P',18,32,50,47],['P',50,47,83,32],['P',83,32,74,17]],sh:[[74,17,50,5.4]],note:'PP: växla sida, dra isär boxen och avsluta',ball:[18,32]},
+ penaltykill:{a:[[20,31],[81,31],[25,18],[75,18],[51,48]],f:[[37,25],[63,25],[38,37],[62,37]],p:[['P',20,31,51,48],['P',51,48,81,31]],r:[['R',38,37,44,39],['R',62,37,56,39]],zone:true,note:'BP: skydda slottet, justera boxen efter bollens sida',ball:[20,31]}
  };
  const c=layouts[d.id]||layouts.finsk21;
  const X=x=>12+x*3.36,Y=y=>12+y*6.56;
@@ -2963,13 +2963,14 @@ function diagram(d,index){
  const arrow=(p,k,i)=>{const col=k==='R'?'#176aa8':k==='S'?'#e16b20':k==='B'?'#7a4ea3':'#ddad22';const dash=k==='R'?'11 7':k==='P'?'3 6':k==='B'?'7 4':'none';return `<path d="${line(...p.slice(1))}" fill="none" stroke="${col}" stroke-width="${k==='S'?4.5:4}" stroke-dasharray="${dash}" stroke-linecap="round" marker-end="url(#mcarr${index}${k})"/>`;};
  const player=(p,n,def)=>`<g><circle cx="${X(p[0])}" cy="${Y(p[1])}" r="14" fill="${def?'#ad3550':'#16815b'}" stroke="#fff" stroke-width="2.5"/><text x="${X(p[0])}" y="${Y(p[1])+4.5}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${def?'F':'A'}${n+1}</text></g>`;
  const guide=`<rect x="12" y="12" width="336" height="656" rx="33" fill="#f4f8f5" stroke="#275e79" stroke-width="4"/><path d="M12 340 H348" stroke="#ce4b55" stroke-width="2.5"/><circle cx="180" cy="340" r="4" fill="#ce4b55"/>`+
- [true,false].map(top=>{const rear=top?2.85:37.15,front=top?6.85:33.15,kr=top?3.5:36.5,kf=top?4.5:35.5;return `<rect x="${X(37.5)}" y="${Y(Math.min(rear,front))}" width="${X(62.5)-X(37.5)}" height="${Y(10)-Y(0)}" fill="none" stroke="#ce4b55" stroke-width="2.2"/><rect x="${X(43.75)}" y="${Y(Math.min(kr,kf))}" width="${X(56.25)-X(43.75)}" height="${Y(2.5)-Y(0)}" fill="none" stroke="#ce4b55" stroke-width="2"/><rect x="${X(46)}" y="${Y(top?kr-0.65:kr)}" width="${X(54)-X(46)}" height="${Y(1.625)-Y(0)}" fill="#dbeaf2" stroke="#244f6a" stroke-width="2"/>${[7.5,92.5].map(x=>`<circle cx="${X(x)}" cy="${Y(kr)}" r="3.5" fill="#ce4b55"/>`).join('')}`}).join('')+
+ [true,false].map(top=>{const areaTop=top?3:32,creaseTop=top?4.25:33.25,goalTop=top?4.7:33.7,faceY=top?7.5:32.5;return `<rect x="${X(37.5)}" y="${Y(areaTop)}" width="${X(62.5)-X(37.5)}" height="${Y(5)-Y(0)}" fill="none" stroke="#ce4b55" stroke-width="2.2"/><rect x="${X(43.75)}" y="${Y(creaseTop)}" width="${X(56.25)-X(43.75)}" height="${Y(2.5)-Y(0)}" fill="none" stroke="#ce4b55" stroke-width="2"/><rect x="${X(46)}" y="${Y(goalTop)}" width="${X(54)-X(46)}" height="${Y(1.625)-Y(0)}" fill="#dbeaf2" stroke="#244f6a" stroke-width="2"/>${[7.5,92.5].map(x=>`<circle cx="${X(x)}" cy="${Y(faceY)}" r="3.5" fill="#ce4b55"/>`).join('')}`}).join('')+
  [7.5,92.5].map(x=>`<circle cx="${X(x)}" cy="340" r="3.5" fill="#ce4b55"/>`).join('');
  const defs=`<defs>${['R','P','S','B'].map(k=>`<marker id="mcarr${index}${k}" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M0 0 L7 3.5 L0 7" fill="none" stroke="${({R:'#176aa8',P:'#ddad22',S:'#e16b20',B:'#7a4ea3'})[k]}" stroke-width="1.5"/></marker>`).join('')}</defs>`;
  const zone=c.zone?`<rect x="${X(34)}" y="${Y(15)}" width="${X(66)-X(34)}" height="${Y(35)-Y(15)}" fill="#e5c45a" fill-opacity=".18" stroke="#b18a1c" stroke-width="2" stroke-dasharray="7 5" rx="10"/>`:'';
+ const ball=c.ball?`<circle cx="${X(c.ball[0])+14}" cy="${Y(c.ball[1])-12}" r="5" fill="#182b35" stroke="white" stroke-width="1.3"/>`:'';
  const keeper=`<text x="180" y="${Y(6.3)}" font-size="11" text-anchor="middle" fill="#244f6a" font-weight="bold">MÅL</text>`;
  const paths=[...(c.r||[]).map(p=>['R',...p.slice(1)]),...(c.p||[]),...(c.sh||[]).map(p=>['S',...p])].map((p,i)=>arrow(p,p[0],i)).join('');
- return `<figure class="mc-bank-sketch mc-bank-realrink"><svg viewBox="0 0 360 680" role="img" aria-label="Innebandyplan och spelvägar för ${clean(d.title)}">${defs}${guide}${zone}${keeper}${paths}${(c.a||[]).map((p,i)=>player(p,i,false)).join('')}${(c.f||[]).map((p,i)=>player(p,i,true)).join('')}</svg><figcaption><strong>${clean(c.note)}</strong><span>🟢 A = anfallare · 🔴 F = försvarare · Blå = löpning · Gul = passning · Orange = avslut · Lila = utspel</span>${c.stages?'<span>Visar sista steget (2 mot 1); övriga steg följer beskrivningen.</span>':''}</figcaption></figure>`;
+ return `<figure class="mc-bank-sketch mc-bank-realrink"><svg viewBox="0 0 360 680" role="img" aria-label="Innebandyplan och spelvägar för ${clean(d.title)}">${defs}${guide}${zone}${keeper}${paths}${ball}${(c.a||[]).map((p,i)=>player(p,i,false)).join('')}${(c.f||[]).map((p,i)=>player(p,i,true)).join('')}</svg><figcaption><strong>${clean(c.note)}</strong><span>🟢 A = anfallare · 🔴 F = försvarare · Blå = löpning · Gul = passning · Orange = avslut · Lila = utspel</span>${c.stages?'<span>Steg 1: A1 ensam mot mål. Steg 2: A1+A2 utan back. Steg 3: A1+A2 mot F1 (illustrationen).</span>':''}</figcaption></figure>`;
 }
 
 function init(){
