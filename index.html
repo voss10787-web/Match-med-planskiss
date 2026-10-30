@@ -235,7 +235,15 @@ body{padding-bottom:0!important}
 .sm-shot-details{padding:10px 12px!important;margin:8px 0!important;line-height:1.3!important;font-size:13px;max-width:100%;box-sizing:border-box}
 .sm-shot-details p{margin:3px 0!important}.sm-shot-details .mc-shot-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:7px}.sm-shot-details .mc-shot-meta{font-size:12px;color:#bed2e8}.sm-shot-details .mc-shot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}.sm-shot-details .mc-shot-grid>div{min-width:0;overflow-wrap:anywhere}.sm-shot-details .mc-shot-grid small{display:block;color:#b4c9de;font-size:11px}.sm-shot-details .mc-shot-grid strong{font-size:13px}.sm-shot-details .mc-shot-close{font-size:12px;min-height:34px;padding:5px 9px;margin-top:8px}.sm-shot-details .mc-shot-note{display:block;margin-top:7px;color:#b4c9de}
 .demo-shot [data-demo-shot],#smAnalysisRink [data-shot-index]{touch-action:manipulation;transition:stroke-width .12s,filter .12s}.demo-shot [data-demo-shot][data-selected="true"],#smAnalysisRink [data-shot-index][data-selected="true"]{filter:drop-shadow(0 0 3px #ffe45c)}
-</style><style id="mc-expanded-shot-statistics">#mcDemoPanel .mc-shotstats{font-size:12px;min-width:350px}#mcDemoPanel .mc-shotstats th,#mcDemoPanel .mc-shotstats td{padding:8px 6px}#mcDemoPanel .mc-shotstats th:first-child{text-align:left}#mcDemoPanel .mc-filter-label{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px;margin:10px 0}#mcDemoPanel .mc-filter-label select{max-width:230px}#mcDemoPanel .mc-training-summary{margin:12px 0}</style></head><body><main><h1 class="compactTitle"><img src="icon-192.png" alt="Öjaby Sport" class="mcClubLogo"> Matchcoach</h1><section class="panel" id="clockPanel"><div class="matchFieldsHidden" hidden><label>Motstånd <input id="opponent" placeholder="Motståndare"></label><label>Datum <input type="date" id="date"></label><label>Period <select id="period"><option>1</option><option>2</option><option>3</option></select></label></div><div class="row"><div class="clock" id="clock">00:00</div><button id="startClock">Starta klockan</button><button class="secondary" id="resetClock">Nollställ periodklockan</button><button type="button" class="danger" id="finishMatch">🏁 Avsluta match</button><label class="matchKindPicker" for="matchKind">Matchtyp <select id="matchKind" aria-label="Välj matchtyp"><option value="series">Seriematch</option><option value="internal">Internmatch</option></select></label><span class="tag" id="live">Ingen femma inne</span><label class="periodCorner" for="periodQuick">Period <select id="periodQuick" aria-label="Välj period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label></div><p class="help">Matchklockan räknar upp från 00:00 till 15:00 per period (3 × 15 minuter). När du trycker ”IN” avslutas föregående femmas byte och den nya femman startar direkt. Pausa klockan vid avblåsningar om du vill mäta effektiv speltid.</p></section><section class="panel" id="liveScoreboard" aria-label="Livetavla"><div class="scoreTop"><span>ÖJABY</span><span id="boardPeriod" hidden>PERIOD 1</span><span id="boardOpponent">MOTSTÅNDARE</span></div><div class="scoreNumbers"><span id="boardOwn">0</span><span class="scoreDash">–</span><span id="boardAway">0</span></div><div class="scoreTime" id="boardClock" hidden>00:00</div><div class="scorePenalties"><div><strong>ÖJABY · UTVISNINGAR</strong><div id="boardOwnPen">Inga aktiva</div></div><div><strong>MOTSTÅNDARE · UTVISNINGAR</strong><div id="boardOppPen">Inga aktiva</div></div></div><p class="help" style="margin-bottom:0">Utvisningstiderna följer matchklockan. Vid mål får du bekräfta eventuell kvittning.</p></section><nav id="mcViewNav" aria-label="Välj vy" role="tablist"><button id="mcMatchTab" type="button" role="tab" aria-selected="true">🏑 Match</button><button id="mcAnalysisTab" type="button" role="tab" aria-selected="false">📊 Analys</button><button id="mcTrainingTab" type="button" role="tab" aria-selected="false">📚 Träningsbank</button></nav><div id="mcViewHelp">Välj Match, Analys eller Träningsbank</div><div id="mcMatchView" class="mc-view-page" role="tabpanel"></div><div id="mcAnalysisView" class="mc-view-page" role="tabpanel" hidden></div><section class="panel" id="matchSquadPanel">
+</style><style id="mc-expanded-shot-statistics">#mcDemoPanel .mc-shotstats{font-size:12px;min-width:350px}#mcDemoPanel .mc-shotstats th,#mcDemoPanel .mc-shotstats td{padding:8px 6px}#mcDemoPanel .mc-shotstats th:first-child{text-align:left}#mcDemoPanel .mc-filter-label{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px;margin:10px 0}#mcDemoPanel .mc-filter-label select{max-width:230px}#mcDemoPanel .mc-training-summary{margin:12px 0}</style><style id="mc-safety-controls-css">
+#mcSafetyActions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 0;width:100%}
+#mcSafetyActions button{font-size:12px;padding:8px 9px;white-space:normal;line-height:1.25;flex:0 1 auto}
+#mcSafetyActions #mcAbortMatch{background:#823446;border-color:#a65c6c}
+#mcSafetyActions #mcUndoAbort{background:#225f74}
+#mcSafetyActions button[hidden]{display:none!important}
+#mcSafetyStatus{font-size:11px;color:var(--muted,#b5cbe0);flex-basis:100%}
+@media(max-width:410px){#mcSafetyActions button{font-size:11px;padding:7px 8px}}
+</style></head><body><main><h1 class="compactTitle"><img src="icon-192.png" alt="Öjaby Sport" class="mcClubLogo"> Matchcoach</h1><section class="panel" id="clockPanel"><div class="matchFieldsHidden" hidden><label>Motstånd <input id="opponent" placeholder="Motståndare"></label><label>Datum <input type="date" id="date"></label><label>Period <select id="period"><option>1</option><option>2</option><option>3</option></select></label></div><div class="row"><div class="clock" id="clock">00:00</div><button id="startClock">Starta klockan</button><button class="secondary" id="resetClock">Nollställ periodklockan</button><button type="button" class="danger" id="finishMatch">🏁 Avsluta match</button><div id="mcSafetyActions"><button type="button" id="mcSaveNow" class="secondary">💾 Spara läge</button><button type="button" id="mcUndoEventTop" class="secondary">↶ Ångra händelse</button><button type="button" id="mcAbortMatch" class="danger">🗑 Avbryt utan att spara</button><button type="button" id="mcUndoAbort" class="secondary" hidden>↶ Ångra avbruten match</button><span id="mcSafetyStatus" role="status" aria-live="polite"></span></div><label class="matchKindPicker" for="matchKind">Matchtyp <select id="matchKind" aria-label="Välj matchtyp"><option value="series">Seriematch</option><option value="internal">Internmatch</option></select></label><span class="tag" id="live">Ingen femma inne</span><label class="periodCorner" for="periodQuick">Period <select id="periodQuick" aria-label="Välj period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label></div><p class="help">Matchklockan räknar upp från 00:00 till 15:00 per period (3 × 15 minuter). När du trycker ”IN” avslutas föregående femmas byte och den nya femman startar direkt. Pausa klockan vid avblåsningar om du vill mäta effektiv speltid.</p></section><section class="panel" id="liveScoreboard" aria-label="Livetavla"><div class="scoreTop"><span>ÖJABY</span><span id="boardPeriod" hidden>PERIOD 1</span><span id="boardOpponent">MOTSTÅNDARE</span></div><div class="scoreNumbers"><span id="boardOwn">0</span><span class="scoreDash">–</span><span id="boardAway">0</span></div><div class="scoreTime" id="boardClock" hidden>00:00</div><div class="scorePenalties"><div><strong>ÖJABY · UTVISNINGAR</strong><div id="boardOwnPen">Inga aktiva</div></div><div><strong>MOTSTÅNDARE · UTVISNINGAR</strong><div id="boardOppPen">Inga aktiva</div></div></div><p class="help" style="margin-bottom:0">Utvisningstiderna följer matchklockan. Vid mål får du bekräfta eventuell kvittning.</p></section><nav id="mcViewNav" aria-label="Välj vy" role="tablist"><button id="mcMatchTab" type="button" role="tab" aria-selected="true">🏑 Match</button><button id="mcAnalysisTab" type="button" role="tab" aria-selected="false">📊 Analys</button><button id="mcTrainingTab" type="button" role="tab" aria-selected="false">📚 Träningsbank</button></nav><div id="mcViewHelp">Välj Match, Analys eller Träningsbank</div><div id="mcMatchView" class="mc-view-page" role="tabpanel"></div><div id="mcAnalysisView" class="mc-view-page" role="tabpanel" hidden></div><section class="panel" id="matchSquadPanel">
 <h2>👥 Matchtrupp – före match</h2>
 <p class="help">Välj vilka spelare som är uttagna till dagens match. Spelare som inte är med visas inte som val vid nya händelser eller byten. Dina sparade femmor behålls till nästa match.</p>
 <div class="row"><button type="button" class="secondary" id="squadAll">Alla med</button><button type="button" class="secondary" id="squadNone">Ingen med</button></div>
@@ -742,6 +750,57 @@ el('finishMatch').onclick=()=>{
   render();renderSeason();matchKindSelect.value='series';
   alert('Matchen är sparad i säsongsstatistiken! Matchtavlan är nollställd och dina femmor är kvar.');
 };
+// Matchcoach 3.1 – safe match controls. Profiles, roster, drills, training plans and archive are separate stores.
+(function(){
+ const saveBtn=el('mcSaveNow'),undoBtn=el('mcUndoEventTop'),abortBtn=el('mcAbortMatch'),restoreBtn=el('mcUndoAbort'),status=el('mcSafetyStatus');
+ const backupKey='mc_v31_aborted_match_undo';
+ function feedback(t){status.textContent=t;}
+ function hasData(s){return Boolean((s.events||[]).length||(s.shifts||[]).length||s.active||Number(s.seconds)>0||(s.penalties||[]).length||(s.internalStatEvents||[]).length);}
+ function persistExact(v){try{const t=JSON.stringify(v);mcTestStorage.setItem(KEY,t);return mcTestStorage.getItem(KEY)===t;}catch{return false;}}
+ function getBackup(){try{const value=window.sessionStorage.getItem(backupKey);return value?JSON.parse(value):null;}catch{return null;}}
+ function showUndo(){restoreBtn.hidden=!getBackup();}
+ function resetAfterDiscard(){
+   const savedLines=state.lines.map(line=>[...line]);
+   return {...structuredClone(defaults),lines:savedLines,matchKind:state.matchKind==='internal'?'internal':'series',date:new Date().toISOString().slice(0,10)};
+ }
+ saveBtn.addEventListener('click',()=>{
+   if(state.running)tick();
+   feedback(persistExact(state)?'✓ Matchläget sparat lokalt '+new Date().toLocaleTimeString('sv-SE'):'⚠ Kunde inte spara matchläget. Exportera en säkerhetskopia.');
+ });
+ undoBtn.addEventListener('click',()=>{
+   const quick=el('quickUndo');
+   if(!state.events?.length){feedback('Ingen registrerad händelse att ångra.');return;}
+   if(quick){quick.click();feedback('Kontrollera bekräftelsen för att ångra senaste händelsen.');}else feedback('Ångra är inte tillgängligt i denna vy.');
+ });
+ abortBtn.addEventListener('click',()=>{
+   if(!hasData(state)){feedback('Ingen påbörjad match att avbryta.');return;}
+   const goalsFor=(state.events||[]).filter(x=>x.type==='Mål framåt').length;
+   const goalsAgainst=(state.events||[]).filter(x=>x.type==='Mål bakåt').length;
+   if(!confirm('AVBRYT MATCH UTAN ATT SPARA?\n\nDen pågående testmatchen ('+goalsFor+'–'+goalsAgainst+') rensas och läggs INTE i säsongsarkivet. Spelarprofiler, trupp, femmor, träningspass och redan sparade matcher behålls.\n\nDu kan ångra direkt efteråt med knappen Ångra avbruten match.'))return;
+   // First preserve the exact current state for undo. Abort if the safety copy fails.
+   const copy=structuredClone(state);
+   try{window.sessionStorage.setItem(backupKey,JSON.stringify(copy));
+     if(!getBackup())throw Error('backup failed');
+   }catch{alert('Kunde inte skapa ångrakopia. Matchen har INTE rensats.');return;}
+   const next=resetAfterDiscard();
+   if(!persistExact(next)){alert('Kunde inte nollställa matchläget. Matchen finns kvar.');return;}
+   clearInterval(timer);timer=null;state=next;state.running=false;
+   render();matchKindSelect.value=state.matchKind;showUndo();
+   feedback('✓ Matchen avbröts utan arkivering. Profiler och femmor är kvar.');
+ });
+ restoreBtn.addEventListener('click',()=>{
+   const backup=getBackup();if(!backup){showUndo();return;}
+   if(hasData(state)&&!confirm('Den aktuella matchen har nya händelser. Ersätta den med den tidigare avbrutna matchen?'))return;
+   if(!confirm('Återställa den senast avbrutna matchen?'))return;
+   const restored={...structuredClone(defaults),...backup,running:false};
+   if(!persistExact(restored)){alert('Återställningen kunde inte sparas. Ingen matchdata ändrades.');return;}
+   clearInterval(timer);timer=null;state=restored;matchKindSelect.value=state.matchKind==='internal'?'internal':'series';
+   try{window.sessionStorage.removeItem(backupKey);}catch{}
+   render();showUndo();feedback('✓ Den avbrutna matchen återställd (klockan pausad).');
+ });
+ showUndo();
+})();
+
 el('archiveMatch').onclick=()=>{
   if(state.matchKind==='internal'){alert('Internmatcher sparas inte i säsongsstatistiken. Välj Seriematch om du vill arkivera matchen.');return}
   if(!state.opponent.trim()&&!confirm('Motståndare saknas. Spara ändå?'))return;
