@@ -417,7 +417,9 @@ const available=names.filter(n=>!on.includes(n));
 for(const [outId,inId] of [['swapOut','swapIn'],['swapOut2','swapIn2']]){
  const out=$(outId),inside=$(inId),oldOut=out.value,oldIn=inside.value;
  out.innerHTML='<option value="">– välj –</option>'+on.map(n=>`<option>${n}</option>`).join('');
- inside.innerHTML='<option value="">– välj –</option>'+available.map(n=>`<option>${n}</option>`).join('');
+ const ranked=window.mcV3Rank?window.mcV3Rank(out.value||oldOut,available,state.active):available;
+ inside.innerHTML='<option value="">– välj –</option>'+ranked.map(n=>`<option value="${n}">${n}</option>`).join('');
+ out.onchange=()=>{const current=inside.value;const sorted=window.mcV3Rank?window.mcV3Rank(out.value,available,state.active):available;inside.innerHTML='<option value="">– välj –</option>'+sorted.map(n=>`<option value="${n}">${n}</option>`).join('');if(sorted.includes(current))inside.value=current;};
  if(on.includes(oldOut))out.value=oldOut;
  if(available.includes(oldIn))inside.value=oldIn;
 }
@@ -934,7 +936,7 @@ function quickRender(){
   swapBox.hidden=false;swapBox.replaceChildren();swapBox.dataset.mcTapOut=outName;
   const label=document.createElement('div');label.className='mc-tap-swap-label';label.textContent='Byt ut '+outName+' – välj spelare IN:';swapBox.append(label);
   const choices=document.createElement('div');choices.className='mc-tap-swap-list';
-  const available=names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));
+  const available=(window.mcV3Rank?window.mcV3Rank(outName,names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)),state.active):names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)));
   if(!available.length){const msg=document.createElement('p');msg.textContent='Inga tillgängliga utespelare på bänken.';choices.append(msg);}
   available.forEach(n=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=n;b.onclick=()=>{
    if(!state.active?.players.includes(outName)||state.active.players.includes(n))return;
@@ -954,7 +956,8 @@ function quickRender(){
   const makeOption=(select,value,label)=>{const opt=document.createElement('option');opt.value=value;opt.textContent=label;select.append(opt)};
   makeOption(out,'','Spelare UT');makeOption(inside,'','Spelare IN');
   state.active.players.forEach(n=>makeOption(out,n,n));
-  names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)).forEach(n=>makeOption(inside,n,n));
+  (window.mcV3Rank?window.mcV3Rank(oldOut,names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)),state.active):names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie))).forEach(n=>makeOption(inside,n,n));
+  out.onchange=()=>{const prev=inside.value;inside.replaceChildren();makeOption(inside,'','Spelare IN');const list=names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));(window.mcV3Rank?window.mcV3Rank(out.value,list,state.active):list).forEach(n=>makeOption(inside,n,n));if(list.includes(prev))inside.value=prev;};
   if([...out.options].some(o=>o.value===oldOut))out.value=oldOut;
   if([...inside.options].some(o=>o.value===oldIn))inside.value=oldIn;
   const go=document.createElement('button');go.type='button';go.textContent='Genomför byte';
@@ -3002,6 +3005,11 @@ function init(){
  function draw(){const term=search.value.toLocaleLowerCase('sv');const cat=focus.value;const matches=drills.filter(d=>(!cat||d.focus===cat)&&[d.title,d.focus,d.steps,d.coach].join(' ').toLocaleLowerCase('sv').includes(term));results.innerHTML=`<p>${matches.length} av ${drills.length} övningar visas</p>`+matches.map((d,index)=>`<details class="mc-bank-item"><summary>${clean(d.title)} · ${d.minutes} min</summary><div class="mc-bank-detail"><label class="mc-bank-check"><input type="checkbox" data-mc-bank-pick="${clean(d.id)}" ${picked.has(d.id)?'checked':''}> Lägg till i mitt träningspass</label>${diagram(d,index)}<p><strong>Fokus:</strong> ${clean(d.focus)}</p><p><strong>Spelare:</strong> ${clean(d.players)}</p><p><strong>Material:</strong> ${clean(d.equipment)}</p><p><strong>Organisation:</strong> ${clean(d.setup)}</p><p><strong>Genomförande:</strong> ${clean(d.steps)}</p><p><strong>Ledarfokus:</strong> ${clean(d.coach)}</p><p><strong>Mät:</strong> ${clean(d.measure)}</p></div></details>`).join('')||'<p class="mc-bank-empty">Inga övningar matchar sökningen.</p>';}
  root.addEventListener('change',e=>{const id=e.target?.getAttribute('data-mc-bank-pick');if(!id)return;if(e.target.checked)picked.add(id);else picked.delete(id);drawSummary();});
  root.addEventListener('click',e=>{if(e.target?.id==='mcBankClear'){picked.clear();drawSummary();draw();}if(e.target?.id==='mcBankCopy'){const a=drills.filter(d=>picked.has(d.id));const output='ÖJABY – MITT TRÄNINGSPASS\n'+a.map(d=>`${d.minutes} minuter – ${d.title}\nOrganisation: ${d.setup}\nGenomförande: ${d.steps}\nLedarfokus: ${d.coach}\n`).join('\n')+`\nTotalt: ${a.reduce((n,d)=>n+d.minutes,0)} minuter`;if(navigator.clipboard?.writeText)navigator.clipboard.writeText(output).catch(()=>window.prompt('Kopiera träningspass:',output));else window.prompt('Kopiera träningspass:',output);}});
+ window.mcV3Bank={
+  selected:()=>drills.filter(d=>picked.has(d.id)).map(d=>({...d})),
+  choose:(ids)=>{picked.clear();const available=new Set(drills.map(d=>d.id));ids.forEach(id=>{if(available.has(id))picked.add(id)});drawSummary();draw();},
+  all:()=>drills.map(d=>({...d}))
+ };
  window.addEventListener('mc-custom-drills-changed',()=>{drills.splice(0,drills.length,...builtInDrills,...getCustom());drawSummary();draw()});
  search.addEventListener('input',draw);focus.addEventListener('change',draw);drawSummary();draw();
 }
@@ -3073,7 +3081,7 @@ window.mcRenderCustomDiagram=function(d){return `<figure class="mc-bank-sketch m
 function init(){
  const host=document.getElementById('mcIndependentBank');if(!host||document.getElementById('mcCustomBuilder'))return;
  const builder=document.createElement('section');builder.id='mcCustomBuilder';
- builder.innerHTML=`<h3>✏️ Skapa egen övning · Flyttbara spelare och böjda löpningar</h3><p class="mc-cb-hint">Bygg en egen övning och spara den till träningsbanken. Tryck på planen för att placera spelare och boll. För vanliga pilar: tryck start och slut. För böjd löpning: tryck start, slut och därefter en böjpunkt. Dra sedan den lilla blå cirkeln för att justera kurvan. Du kan även dra anfallare, försvarare och bollar till en ny position med fingret.</p>
+ builder.innerHTML=`<h3>✏️ Skapa egen övning · Flyttbara spelare och böjda löpningar · 3.0</h3><p class="mc-cb-hint">Bygg en egen övning och spara den till träningsbanken. Tryck på planen för att placera spelare och boll. För vanliga pilar: tryck start och slut. För böjd löpning: tryck start, slut och därefter en böjpunkt. Dra sedan den lilla blå cirkeln för att justera kurvan. Du kan även dra anfallare, försvarare och bollar till en ny position med fingret.</p>
  <div class="mc-cb-grid"><label>Övningens namn<input id="cbTitle" maxlength="90" placeholder="T.ex. Snabb spelvändning"></label><label>Tid (minuter)<input type="number" id="cbMinutes" min="1" max="120" value="12"></label>
  <label>Träningsfokus<input id="cbFocus" maxlength="100" placeholder="T.ex. spelvändningar"></label><label>Spelare / målvakter<input id="cbPlayers" maxlength="140" placeholder="T.ex. 2 mot 1 + målvakt"></label>
  <label class="mc-cb-full">Material<input id="cbEquipment" maxlength="180" placeholder="Bollar, koner och västar"></label>
@@ -3175,6 +3183,127 @@ function init(){
  render();list();
 }
 function wait(){const host=document.getElementById('mcIndependentBank');if(host)init();else setTimeout(wait,150)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wait);else wait();
+})();
+</script>
+
+<style id="mc-v3-style">
+.mc-v3-panel{margin-top:14px;background:#162d45;border:1px solid #4c6988;border-radius:13px;padding:14px;color:#f2f7fb}
+.mc-v3-panel h3{margin:0 0 10px;font-size:19px}.mc-v3-panel h4{margin:12px 0 7px}
+.mc-v3-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.mc-v3-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px;min-width:0}
+.mc-v3-panel input,.mc-v3-panel select,.mc-v3-panel textarea{width:100%;box-sizing:border-box;max-width:100%;background:#f8fbff;color:#102339;border-radius:7px;padding:9px;border:1px solid #8aa9c6}
+.mc-v3-panel textarea{min-height:68px}.mc-v3-full{grid-column:1/-1}
+.mc-v3-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.mc-v3-actions button,.mc-v3-panel button{border-radius:8px;padding:9px 12px;border:1px solid #83a2bf;background:#275b82;color:white;font-weight:600}
+.mc-v3-panel button.mc-v3-primary{background:#127e60}.mc-v3-list>div{padding:9px 0;border-top:1px solid #405b76;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.mc-v3-help{font-size:12px;color:#d5e4f1}.mc-v3-data{overflow:auto;max-width:100%}.mc-v3-data table{font-size:12px;border-collapse:collapse;width:100%;min-width:440px}.mc-v3-data td,.mc-v3-data th{padding:7px;text-align:left;border-bottom:1px solid #45617b}
+@media(max-width:440px){.mc-v3-grid{grid-template-columns:1fr}.mc-v3-full{grid-column:auto}}
+@media print{.mc-v3-actions,.mc-v3-panel input,.mc-v3-panel select,.mc-v3-panel textarea,.mc-v3-panel button{display:none!important}}
+</style>
+<script id="mc-v3-feature-pack">
+(function(){
+'use strict';
+const PKEY='ojaby_mc3_profiles_v1',SKEY='ojaby_mc3_training_sessions_v1',OVKEY='ojaby_mc3_match_positions_v1';
+const RKEY='ojaby_matchcoach_roster_v1',AKEY='ojaby_matchcoach_season_v4';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const read=(k,f)=>{try{const x=JSON.parse(localStorage.getItem(k)||'null');return x===null?f:x}catch{return f}};
+const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return JSON.stringify(read(k,null))===JSON.stringify(v)}catch{return false}};
+const players=()=>read(RKEY,[]).filter(p=>p&&p.name);
+const profiles=()=>read(PKEY,{});
+const overrides=()=>read(OVKEY,{});
+const roles=['Center','Vänsterforward','Högerforward','Vänsterback','Högerback','Back','Forward','Målvakt'];
+const orderRole=(r)=>r==='Back'?'Vänsterback':r;
+function roleAt(name,active){
+ const p=profiles()[name]||{},o=overrides()[name];
+ const idx=active?.players?.indexOf(name)??-1;
+ const positions=active?.positionPlayers;
+ if(idx>=0&&Array.isArray(positions)&&typeof positions[idx]==='string'&&roles.includes(positions[idx]))return positions[idx];
+ return o||p.primary||'';
+}
+window.mcV3Rank=(out,available,active)=>{
+ const wanted=roleAt(out,active),pf=profiles(),ov=overrides();
+ const score=n=>{const p=pf[n]||{},primary=ov[n]||p.primary||'',other=Array.isArray(p.secondary)?p.secondary:[];
+  if(!wanted)return 2;
+  if(primary===wanted)return 0;
+  if((wanted.includes('back')||wanted==='Back')&&(primary.includes('back')||primary==='Back'))return 1;
+  if(other.includes(wanted))return 1;
+  return 2;};
+ return [...available].sort((a,b)=>score(a)-score(b)||a.localeCompare(b,'sv'));
+};
+function download(filename,content,type='application/json'){
+ const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+const selOpts=(values,current,blank='– välj –')=>`<option value="">${blank}</option>`+values.map(v=>`<option ${current===v?'selected':''} value="${esc(v)}">${esc(v)}</option>`).join('');
+function start(){
+ const roster=document.getElementById('rosterPanel'),bank=document.getElementById('mcIndependentBank'),season=document.getElementById('seasonPanel');
+ if(!roster||!bank||!season||document.getElementById('mcV3Profiles'))return false;
+ const profile=document.createElement('section');profile.className='mc-v3-panel';profile.id='mcV3Profiles';
+ profile.innerHTML=`<h3>👤 Spelarprofiler · Matchcoach 3.0</h3><p class="mc-v3-help">Sparade egenskaper och positioner ändrar inte gamla matchresultat. Matchens positioner kan ändras separat.</p>
+ <div class="mc-v3-grid">
+ <label class="mc-v3-full">Spelare<select id="mc3Player"></select></label>
+ <label>Klubbfattning<select id="mc3Hand"><option value="">Ej angiven</option><option>Left</option><option>Right</option></select></label>
+ <label>Primär position<select id="mc3Primary"></select></label>
+ <label class="mc-v3-full">Alternativa positioner (håll Ctrl på dator eller välj via lista nedan)<select id="mc3Secondary" multiple size="6"></select></label>
+ <label class="mc-v3-full">Styrkor<textarea id="mc3Strengths"></textarea></label>
+ <label class="mc-v3-full">Utvecklingsområden<textarea id="mc3Weaknesses"></textarea></label>
+ <label class="mc-v3-full">Tränaranteckningar<textarea id="mc3Notes"></textarea></label>
+ <label>Spelarnivå (valfritt)<input type="number" id="mc3Level" min="0" max="5" step="0.5"></label>
+ <label>Position i dagens match<select id="mc3MatchPosition"></select></label>
+ </div><div class="mc-v3-actions"><button type="button" class="mc-v3-primary" id="mc3SavePlayer">💾 Spara spelarprofil</button><button type="button" id="mc3ResetMatchPos">Återställ matchposition</button><button type="button" id="mc3ExportProfiles">Exportera profiler</button><label>Importera profiler <input id="mc3ImportProfiles" type="file" accept=".json,application/json"></label></div><div id="mc3PlayerFeedback" class="mc-v3-help" role="status"></div>`;
+ roster.append(profile);
+ const q=id=>document.getElementById(id);
+ const select=q('mc3Player');
+ function fillPlayers(){const prev=select.value;select.innerHTML=players().map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');if(players().some(p=>p.name===prev))select.value=prev;fillProfile();}
+ function fillProfile(){const name=select.value,p=profiles()[name]||{},ov=overrides();q('mc3Hand').value=p.hand||'';q('mc3Primary').innerHTML=selOpts(roles,p.primary);
+  q('mc3Secondary').innerHTML=roles.map(r=>`<option ${((p.secondary||[]).includes(r))?'selected':''}>${esc(r)}</option>`).join('');
+  for(const fld of ['Strengths','Weaknesses','Notes','Level'])q('mc3'+fld).value=p[fld.toLowerCase()]||'';
+  q('mc3MatchPosition').innerHTML=selOpts(roles,ov[name], 'Använd profilens position');
+ }
+ select.onchange=fillProfile;
+ q('mc3SavePlayer').onclick=()=>{const name=select.value;if(!name)return;const all=profiles(),position=overrides();all[name]={...all[name],hand:q('mc3Hand').value,primary:q('mc3Primary').value,secondary:[...q('mc3Secondary').selectedOptions].map(x=>x.value),strengths:q('mc3Strengths').value,weaknesses:q('mc3Weaknesses').value,notes:q('mc3Notes').value,level:q('mc3Level').value};if(q('mc3MatchPosition').value)position[name]=q('mc3MatchPosition').value;else delete position[name];
+  if(!write(PKEY,all)||!write(OVKEY,position)){alert('Profiler kunde inte sparas. Kontrollera lagringsutrymmet.');return;}q('mc3PlayerFeedback').textContent='Sparat: '+name+' · '+new Date().toLocaleTimeString('sv-SE');};
+ q('mc3ResetMatchPos').onclick=()=>{const a=overrides();delete a[select.value];if(write(OVKEY,a)){q('mc3MatchPosition').value='';q('mc3PlayerFeedback').textContent='Matchposition återställd.'}};
+ q('mc3ExportProfiles').onclick=()=>download('matchcoach_spelarprofiler.json',JSON.stringify({format:'mc-v3-player-profiles',profiles:profiles()},null,2));
+ q('mc3ImportProfiles').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const x=JSON.parse(await f.text());if(x.format!=='mc-v3-player-profiles'||!x.profiles||Array.isArray(x.profiles)||typeof x.profiles!=='object')throw Error();if(!confirm('Importera profiler och ersätta befintliga profiler med samma namn?'))return;const merged={...profiles(),...x.profiles};if(!write(PKEY,merged))throw Error();fillProfile();alert('Profiler importerade.')}catch{alert('Ogiltig profilfil.')}finally{e.target.value=''}};
+ fillPlayers();
+ const plan=document.createElement('section');plan.className='mc-v3-panel';plan.id='mcV3Planner';
+ plan.innerHTML=`<h3>📅 Sparade träningspass · Matchcoach 3.0</h3><p class="mc-v3-help">Välj övningar ovan, ange namn och datum och spara hela passet. Öppna sparade pass för att återställa övningsvalen.</p><div class="mc-v3-grid">
+ <label>Träningspassets namn<input id="mc3PlanName" placeholder="T.ex. Spelvändningar och avslut"></label><label>Datum<input id="mc3PlanDate" type="date"></label>
+ <label class="mc-v3-full">Syfte / ledarens fokus<textarea id="mc3PlanFocus"></textarea></label><label class="mc-v3-full">Uppföljning efter träningen<textarea id="mc3PlanFollowup" placeholder="Vad fungerade och vad behöver vi jobba vidare med?"></textarea></label>
+ </div><div class="mc-v3-actions"><button type="button" class="mc-v3-primary" id="mc3SavePlan">💾 Spara träningspass</button><button type="button" id="mc3NewPlan">Nytt pass</button><button type="button" id="mc3ExportPlans">Exportera träningspass</button><label>Importera pass <input type="file" id="mc3ImportPlans" accept=".json,application/json"></label></div>
+ <div id="mc3PlanStatus" class="mc-v3-help"></div><h4>Mina sparade träningspass</h4><div id="mc3PlanList" class="mc-v3-list"></div>`;
+ bank.append(plan);
+ let editing=null;
+ q('mc3PlanDate').value=new Date().toLocaleDateString('sv-SE');
+ // ISO date for type=date
+ q('mc3PlanDate').value=new Date().toISOString().slice(0,10);
+ const plans=()=>{const p=read(SKEY,[]);return Array.isArray(p)?p:[]};
+ function planList(){const a=plans();q('mc3PlanList').innerHTML=a.map((p,i)=>`<div><span><strong>${esc(p.title)}</strong><br><small>${esc(p.date)} · ${(p.ids||[]).length} övningar · ${Number(p.minutes)||0} min</small></span><span><button type="button" data-open="${i}">Öppna</button><button type="button" data-print="${i}">Skriv ut</button><button type="button" data-remove="${i}">Ta bort</button></span></div>`).join('')||'<p class="mc-v3-help">Inga pass sparade ännu.</p>';}
+ function resetPlan(){editing=null;q('mc3PlanName').value='';q('mc3PlanFocus').value='';q('mc3PlanFollowup').value='';q('mc3PlanDate').value=new Date().toISOString().slice(0,10);}
+ q('mc3SavePlan').onclick=()=>{const bank=window.mcV3Bank;if(!bank)return alert('Träningsbanken har inte laddats.');const ds=bank.selected();const title=q('mc3PlanName').value.trim();if(!title)return alert('Ge träningspasset ett namn.');if(!ds.length)return alert('Markera minst en övning i träningsbanken ovan.');const all=plans(),id=editing||('plan-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));const data={id,title,date:q('mc3PlanDate').value,focus:q('mc3PlanFocus').value,followup:q('mc3PlanFollowup').value,ids:ds.map(d=>d.id),snapshot:ds,minutes:ds.reduce((s,d)=>s+(Number(d.minutes)||0),0)};const index=all.findIndex(x=>x.id===id);if(index>=0)all[index]=data;else all.push(data);if(!write(SKEY,all))return alert('Träningspasset kunde inte sparas. Exportera en säkerhetskopia.');editing=id;q('mc3PlanStatus').textContent='Sparat '+title+' · '+data.minutes+' minuter';planList();};
+ q('mc3NewPlan').onclick=()=>{resetPlan();window.mcV3Bank?.choose([]);};
+ function printPlan(p){const css='body{font:14px Arial;margin:26px;color:#17283a}h1{font-size:24px}section{border-top:1px solid #ccc;padding:12px 0}';const html=`<!doctype html><html lang="sv"><meta charset="utf-8"><title>${esc(p.title)}</title><style>${css}</style><h1>${esc(p.title)}</h1><p>${esc(p.date)} · ${p.minutes} minuter</p><p><b>Syfte:</b> ${esc(p.focus)}</p>${(p.snapshot||[]).map(d=>`<section><h2>${esc(d.title)} · ${esc(d.minutes)} min</h2><p><b>Organisation:</b> ${esc(d.setup)}</p><p><b>Genomförande:</b> ${esc(d.steps)}</p><p><b>Ledarfokus:</b> ${esc(d.coach)}</p></section>`).join('')}<h3>Uppföljning</h3><p>${esc(p.followup)}</p></html>`;const w=window.open('','_blank');if(!w){alert('Safari blockerade utskriftsfönstret. Tillåt popupfönster.');return;}w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),200);}
+ q('mc3PlanList').onclick=e=>{const b=e.target.closest('button');if(!b)return;const all=plans(),i=Number(b.dataset.open??b.dataset.remove??b.dataset.print),p=all[i];if(!p)return;if(b.hasAttribute('data-remove')){if(!confirm('Ta bort träningspasset '+p.title+'?'))return;all.splice(i,1);if(write(SKEY,all)){if(editing===p.id)resetPlan();planList();}return;}if(b.hasAttribute('data-print'))return printPlan(p);editing=p.id;q('mc3PlanName').value=p.title;q('mc3PlanDate').value=p.date;q('mc3PlanFocus').value=p.focus||'';q('mc3PlanFollowup').value=p.followup||'';window.mcV3Bank?.choose(p.ids||[]);q('mc3PlanStatus').textContent='Öppnat: '+p.title+' · ändra och tryck Spara för att uppdatera.';};
+ q('mc3ExportPlans').onclick=()=>download('matchcoach_traningspass.json',JSON.stringify({format:'mc-v3-training-plans',plans:plans()},null,2));
+ q('mc3ImportPlans').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(obj.format!=='mc-v3-training-plans'||!Array.isArray(obj.plans)||!obj.plans.every(p=>p.id&&p.title&&Array.isArray(p.ids)))throw Error();if(!confirm('Importera '+obj.plans.length+' träningspass?'))return;const m=new Map(plans().map(p=>[p.id,p]));obj.plans.forEach(p=>m.set(p.id,p));if(!write(SKEY,[...m.values()]))throw Error();planList();}catch{alert('Kunde inte importera träningspassen.')}finally{e.target.value=''}};
+ planList();
+ // Development and post-training follow-up, backed by the existing real season archive
+ const dev=document.createElement('section');dev.className='mc-v3-panel';dev.id='mcV3Dev';dev.innerHTML=`<h3>📈 Individuell utveckling och träningsuppföljning</h3><p class="mc-v3-help">Beräknas enbart från sparade riktiga matcher. Demomatcher ingår inte. Resultaten är observationer, inte bevis för träningseffekt.</p><label>Spelare<select id="mc3DevPlayer"></select></label><div id="mc3DevTable" class="mc-v3-data"></div><h4>Följ upp en tränad färdighet</h4><label>Statistikmått<select id="mc3Metric"><option value="shotBlocked">Skott i täck (färre är bättre)</option><option value="shotOff">Skott utanför (färre är bättre)</option><option value="shotOn">Skott på mål (fler är bättre)</option><option value="block">Täckta skott (fler är bättre)</option></select></label><div id="mc3Compare" class="mc-v3-help"></div><div class="mc-v3-actions"><button type="button" id="mc3PrintDev">Skriv ut spelarutveckling</button></div>`;season.append(dev);
+ const devSel=q('mc3DevPlayer');devSel.innerHTML='<option value="">Hela laget</option>'+players().map(p=>`<option>${esc(p.name)}</option>`).join('');
+ const types={shotBlocked:'Skott i täck',shotOff:'Skott utanför',shotOn:'Skott på mål',block:'Täckta skott'};
+ function series(){const a=read(AKEY,[]);return Array.isArray(a)?a.filter(m=>m&&m.data&&Array.isArray(m.data.events)):[];}
+ function evtMatch(e,kind){const t=String(e.type||'').toLowerCase();return kind==='shotBlocked'?t.includes('skott i täck'):kind==='shotOff'?t.includes('skott utanför'):kind==='shotOn'?(t.includes('skott på mål')&&!t.includes('motstånd')):kind==='block'?t.includes('täckt skott'):false;}
+ function getEvents(m){return m.data?.events||[];}
+ function per(m,kind,name){return getEvents(m).filter(e=>evtMatch(e,kind)&&(!name||(e.scorer===name||e.player===name))).length;}
+ function renderDev(){const matches=series(),name=devSel.value,k=q('mc3Metric').value,part=matches.slice(-5);
+  q('mc3DevTable').innerHTML=matches.length?`<table><thead><tr><th>Match</th><th>På mål</th><th>Utanför</th><th>I täck</th><th>Täckta</th></tr></thead><tbody>${part.map((m,i)=>`<tr><td>${esc(m.data?.opponent||m.opponent||('Match '+(matches.length-part.length+i+1)))}</td>${['shotOn','shotOff','shotBlocked','block'].map(k=>`<td>${per(m,k,name)}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p class="mc-v3-help">Inga sparade seriematcher hittades.</p>';
+  if(matches.length>=2){const mid=Math.max(1,Math.floor(matches.length/2)),a=matches.slice(0,mid),b=matches.slice(mid);const avg=x=>x.reduce((n,m)=>n+per(m,k,name),0)/(x.length||1);q('mc3Compare').textContent=`${types[k]}: tidigare ${avg(a).toFixed(1)} per match → senare ${avg(b).toFixed(1)} per match. Statistik jämför två tidsperioder, men visar inte säkert orsaken.`;}else q('mc3Compare').textContent='Spara minst två riktiga matcher för att jämföra utveckling.';
+ }
+ devSel.onchange=renderDev;q('mc3Metric').onchange=renderDev;q('mc3PrintDev').onclick=()=>window.print();renderDev();
+ return true;
+}
+function wait(){if(!start())setTimeout(wait,250)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wait);else wait();
 })();
 </script>
