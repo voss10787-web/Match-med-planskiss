@@ -254,6 +254,41 @@ body{padding-bottom:0!important}
 #mcSafetyPanel #mcSafetyStatus{font-size:12px}
 @media(max-width:420px){#mcSafetyPanel #mcSafetyActions button{font-size:12px}}
 </style>
+
+<style id="mc-compact-menus-v32">
+/* Tighten closed panels without changing any match data or event handling. */
+#mcMatchView .mc-section-group,
+#mcAnalysisView .mc-section-group{
+  margin:5px 0!important;padding:2px 7px!important;border-radius:10px!important;
+}
+#mcMatchView .mc-section-group>summary,
+#mcAnalysisView .mc-section-group>summary{
+  min-height:42px!important;padding:6px 8px!important;font-size:clamp(13px,3.5vw,16px)!important;
+  line-height:1.18!important;gap:6px!important;
+}
+.mc-section-group>summary:after{content:'▾'!important;font-size:15px!important;font-weight:700!important;min-width:18px!important;text-align:center}
+.mc-section-group[open]>summary:after{content:'▴'!important}
+#mcMatchView .mc-section-group>.panel,
+#mcAnalysisView .mc-section-group>.panel{margin:5px 0!important}
+/* Single-arrow header for Spara/Ångra/Avbryt and other details menus. */
+#mcSafetyPanel{margin:6px 0!important;padding:2px 9px!important;border-radius:10px!important}
+#mcSafetyPanel>summary{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;min-height:42px!important;padding:6px 5px!important;font-size:clamp(13px,3.5vw,16px)!important;line-height:1.15!important;list-style:none!important}
+#mcSafetyPanel>summary::-webkit-details-marker{display:none}
+#mcSafetyPanel>summary:after{content:'▾';font-size:15px;color:#bcd2e9}
+#mcSafetyPanel[open]>summary:after{content:'▴'}
+/* Standalone foldable panels. Header-only state should not preserve card-sized margins. */
+section.panel.mc-foldable.mc-folded{padding:5px 9px!important;margin:5px 0!important;border-radius:10px!important}
+section.panel.mc-foldable.mc-folded>h2{font-size:clamp(13px,3.5vw,16px)!important;line-height:1.18!important;margin:0!important;min-height:38px!important;gap:6px!important}
+section.panel.mc-foldable>h2>.mc-fold-button{min-width:40px!important;min-height:38px!important;padding:4px 8px!important;margin-left:auto!important;font-size:17px!important;background:transparent!important;border:0!important}
+/* Three main tabs; keep their labels readable at iPhone widths. */
+#mcViewNav{gap:5px!important;margin:7px 0 5px!important;padding:5px!important;border-radius:10px!important}
+#mcViewNav button{min-height:40px!important;padding:6px 3px!important;font-size:clamp(11px,3.15vw,14px)!important;line-height:1.15!important;border-radius:8px!important}
+#mcViewHelp{display:none!important}
+@media(max-width:420px){
+ #mcMatchView .mc-section-group>summary,#mcAnalysisView .mc-section-group>summary{font-size:14px!important}
+ #mcViewNav button{font-size:12px!important}
+}
+</style>
 </head><body><main><h1 class="compactTitle"><img src="icon-192.png" alt="Öjaby Sport" class="mcClubLogo"> Matchcoach</h1><section class="panel" id="clockPanel"><div class="matchFieldsHidden" hidden><label>Motstånd <input id="opponent" placeholder="Motståndare"></label><label>Datum <input type="date" id="date"></label><label>Period <select id="period"><option>1</option><option>2</option><option>3</option></select></label></div><div class="row"><div class="clock" id="clock">00:00</div><button id="startClock">Starta klockan</button><button class="secondary" id="resetClock">Nollställ periodklockan</button><button type="button" class="danger" id="finishMatch">🏁 Avsluta match</button><label class="matchKindPicker" for="matchKind">Matchtyp <select id="matchKind" aria-label="Välj matchtyp"><option value="series">Seriematch</option><option value="internal">Internmatch</option></select></label><span class="tag" id="live">Ingen femma inne</span><label class="periodCorner" for="periodQuick">Period <select id="periodQuick" aria-label="Välj period"><option value="1">P1</option><option value="2">P2</option><option value="3">P3</option></select></label></div><p class="help">Matchklockan räknar upp från 00:00 till 15:00 per period (3 × 15 minuter). När du trycker ”IN” avslutas föregående femmas byte och den nya femman startar direkt. Pausa klockan vid avblåsningar om du vill mäta effektiv speltid.</p></section><section class="panel" id="liveScoreboard" aria-label="Livetavla"><div class="scoreTop"><span>ÖJABY</span><span id="boardPeriod" hidden>PERIOD 1</span><span id="boardOpponent">MOTSTÅNDARE</span></div><div class="scoreNumbers"><span id="boardOwn">0</span><span class="scoreDash">–</span><span id="boardAway">0</span></div><div class="scoreTime" id="boardClock" hidden>00:00</div><div class="scorePenalties"><div><strong>ÖJABY · UTVISNINGAR</strong><div id="boardOwnPen">Inga aktiva</div></div><div><strong>MOTSTÅNDARE · UTVISNINGAR</strong><div id="boardOppPen">Inga aktiva</div></div></div><p class="help" style="margin-bottom:0">Utvisningstiderna följer matchklockan. Vid mål får du bekräfta eventuell kvittning.</p></section><nav id="mcViewNav" aria-label="Välj vy" role="tablist"><button id="mcMatchTab" type="button" role="tab" aria-selected="true">🏑 Match</button><button id="mcAnalysisTab" type="button" role="tab" aria-selected="false">📊 Analys</button><button id="mcTrainingTab" type="button" role="tab" aria-selected="false">📚 Träningsbank</button></nav><div id="mcViewHelp">Välj Match, Analys eller Träningsbank</div><div id="mcMatchView" class="mc-view-page" role="tabpanel"><details id="mcSafetyPanel" class="panel mc-safety-panel"><summary>💾 Spara · Ångra · Avbryt</summary><p class="help">Verktyg för aktuell match. Avbryt rensar inte spelarprofiler, femmor eller säsongsarkiv.</p><div id="mcSafetyActions"><button type="button" id="mcSaveNow" class="secondary">💾 Spara läge</button><button type="button" id="mcUndoEventTop" class="secondary">↶ Ångra händelse</button><button type="button" id="mcAbortMatch" class="danger">🗑️ Avbryt utan att spara</button><button type="button" id="mcUndoAbort" class="secondary" hidden>↶ Ångra avbruten match</button><div id="mcSafetyStatus" role="status" aria-live="polite"></div></div></details></div><div id="mcAnalysisView" class="mc-view-page" role="tabpanel" hidden></div><section class="panel" id="matchSquadPanel">
 <h2>👥 Matchtrupp – före match</h2>
 <p class="help">Välj vilka spelare som är uttagna till dagens match. Spelare som inte är med visas inte som val vid nya händelser eller byten. Dina sparade femmor behålls till nästa match.</p>
@@ -1621,7 +1656,7 @@ section.panel.mc-foldable.mc-folded{padding-bottom:12px!important}
    panel.classList.add('mc-foldable');
    function apply(isOpen){
     panel.classList.toggle('mc-folded',!isOpen);
-    button.textContent=isOpen?'Dölj ▴':'Visa ▾';
+    button.textContent=isOpen?'▴':'▾';
     button.setAttribute('aria-expanded',String(isOpen));
     button.setAttribute('aria-label',(isOpen?'Fäll ihop ':'Visa ')+heading.textContent.replace(/Visa ▾|Dölj ▴/g,'').trim());
    }
