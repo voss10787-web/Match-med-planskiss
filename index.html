@@ -19,6 +19,12 @@
 .mc-series-names .mc-tap-player{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.18;min-width:0}
 .mc-series-names .mc-tap-player-name{display:block;font-size:.82em;font-weight:650;overflow-wrap:anywhere;text-align:center}
 .mc-series-names .mc-tap-player-position{display:block;font-size:.64em;font-weight:500;color:#c7dbea;text-align:center;white-space:normal}
+
+.mc-position-suggestions{display:block}
+.mc-suggestion-group{margin:10px 0 14px}
+.mc-suggestion-heading{display:block;margin:0 0 7px;color:#e5f2ff;font-size:14px}
+.mc-suggestion-group .mc-suggestion-button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;margin:0 6px 7px 0;padding:8px 10px;min-height:44px;max-width:100%;font-size:13px;line-height:1.2}
+.mc-suggestion-button small{font-size:10px;font-weight:400;color:#c7dbea;white-space:normal}
 </style><style>
 .livegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}.playercard{border:1px solid #43536b;border-radius:12px;padding:12px;background:#203048}.playercard.on{background:#123d36;border:2px solid #49d8a1}.playercard .name{font-weight:750;font-size:1.05rem}.playercard .meta{color:#b6c9df;font-size:.84rem;margin-top:5px}.playercard .minutes{font-size:1.35rem;font-weight:800;margin-top:6px}.playercard .track{height:6px;background:#415269;border-radius:6px;margin-top:8px;overflow:hidden}.playercard .fill{height:100%;background:#65c7fa}.playercard.on .fill{background:#49d8a1}.liveheads{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.liveheads h2{margin:0}.livebadge{font-weight:700;color:#49d8a1}.benchhead{margin:15px 0 9px}
 .warningcard{border:2px solid #f5b942!important;background:#4b391c!important}.warninglabel{color:#ffcf70;font-weight:800;font-size:.8rem}.warninglist{display:flex;flex-wrap:wrap;gap:8px}.warningpill{background:#4b391c;border:1px solid #dba337;border-radius:9px;padding:9px 12px}.okpill{color:#a5e7bc} </style><link href="manifest.webmanifest" rel="manifest"/><meta content="#0b1728" name="theme-color"/><meta content="yes" name="apple-mobile-web-app-capable"/><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/><meta content="Matchcoach" name="apple-mobile-web-app-title"/><link href="icon-180.png" rel="apple-touch-icon" sizes="180x180"/><link href="icon-192.png" rel="icon" sizes="192x192" type="image/png"/><style>.analytics-table{overflow:auto}.analytics-table table{min-width:560px}.mini{font-size:12px;color:#adc0d5}.analytics-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.report-head{display:flex;justify-content:space-between;gap:12px}.report-text{width:100%;min-height:85px;box-sizing:border-box}.good{color:#6fe1a3}.bad{color:#ffad9e} @media print{body{background:white;color:black;padding:0;font:11pt Arial}main{max-width:none}.panel{background:white!important;color:black;border:0;border-bottom:1px solid #bbb;break-inside:avoid}body.print-report main> :not(#reportPanel){display:none!important}body.print-report #reportPanel{display:block!important}body.print-report #reportPanel button,body.print-report #reportPanel .no-print{display:none!important}body.print-report table th,body.print-report table td{color:black;border-color:#ccc}body.print-report .muted,body.print-report .mini{color:#444}body.print-report .analytics-table{overflow:visible}body.print-report .analytics-table table{min-width:0;font-size:10px}body.print-report textarea{border:0;color:black;background:white;resize:none}body.print-report .panel{padding:5px}body.print-report .report-only{display:block!important}} .report-only{display:none}.roster-cols{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px}.roster-entry{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 4px;border-bottom:1px solid #35435a}.roster-entry input[type=text]{min-width:110px;max-width:240px;flex:1}.roster-entry label{font-size:12px}.roster-entry button{padding:6px}.roster-cols h3{margin:8px 0}@media(max-width:520px){.roster-cols{grid-template-columns:1fr}} </style><style>#clockPanel{position:sticky;top:0;z-index:10;background:#14273d;box-shadow:0 3px 15px #08101c}#clockPanel .help{display:none}#clockPanel .row{gap:8px}#clockPanel button{min-height:44px}#quickPanel button{min-height:54px;touch-action:manipulation}#quickPanel .quickGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#quickPanel .quickGrid button{white-space:normal;padding:12px 6px}#quickPanel .quickGood{background:#167b52}#quickPanel .quickBad{background:#9c3549}#quickPanel #quickLineButtons button{min-height:50px;flex:1;min-width:110px}#quickPanel #quickLineButtons button.active{background:#128c68}#quickPanel #quickFeedback{color:#9cefc6}#quickUnassigned button{min-height:36px}#quickUnassigned .row{border-bottom:1px solid #354861;padding:8px 0}#linesPanel .help,#swapPanel .help,#eventsPanel>.help{display:none}#linesPanel .teams{grid-template-columns:repeat(2,minmax(0,1fr))}#linesPanel .teams>.panel{padding:10px}#linesPanel .five{grid-template-columns:1fr}#linesPanel .five select{min-width:0}#quickPicker[hidden]{display:none!important}@media(max-width:420px){body{padding:9px}.panel{padding:12px;margin:9px 0}#clockPanel .clock{font-size:34px}#clockPanel label{font-size:12px}#clockPanel input{max-width:135px}#quickPanel button{font-size:14px}}@media print{#clockPanel{position:static}}</style><style>
@@ -1105,14 +1111,51 @@ function quickRender(){
   if(!state.active||!state.active.players.includes(outName))return;
   swapBox.hidden=false;swapBox.replaceChildren();swapBox.dataset.mcTapOut=outName;
   const label=document.createElement('div');label.className='mc-tap-swap-label';label.textContent='Byt ut '+outName+' – välj spelare IN:';swapBox.append(label);
-  const choices=document.createElement('div');choices.className='mc-tap-swap-list';
-  const available=(window.mcV3Rank?window.mcV3Rank(outName,names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)),state.active):names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)));
+  const choices=document.createElement('div');choices.className='mc-tap-swap-list mc-position-suggestions';
+  const current=state.active;
+  const slotIndices=(current.line===5||current.line===7)?[0,1,3,4]:[0,1,2,3,4];
+  const slots=Array.isArray(current.positionPlayers)?current.positionPlayers:(()=>{const a=Array(5).fill('');current.players.forEach((n,i)=>{if(slotIndices[i]!==undefined)a[slotIndices[i]]=n});return a})();
+  const pos=slots.indexOf(outName);
+  const labels=['Vänster back','Höger back','Center','Vänster forward','Höger forward'];
+  const roleNames=['Vänsterback','Högerback','Center','Vänsterforward','Högerforward'];
+  const wanted=roleNames[pos]||'';
+  const rawProfiles=(()=>{try{return JSON.parse(mcTestStorage.getItem('ojaby_mc3_profiles_v1')||'{}')}catch{return {}}})();
+  const profileMap=rawProfiles&&typeof rawProfiles==='object'?rawProfiles:{};
+  const overrides=(()=>{try{return JSON.parse(mcTestStorage.getItem('ojaby_mc3_match_positions_v1')||'{}')}catch{return {}}})();
+  const overrideMap=overrides&&typeof overrides==='object'?overrides:{};
+  const blocked=new Set(activePenalties().filter(p=>p.team==='own').map(p=>p.player).filter(Boolean));
+  const available=names.filter(n=>!current.players.includes(n)&&!blocked.has(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));
+  const assigned=n=>state.lines.some((line,i)=>i!==3&&Array.isArray(line)&&line[pos]===n);
+  const roleMatch=(role)=>role===wanted||(pos===0||pos===1)&&(role==='Back');
+  const recommendations=available.map(n=>{
+   const profile=profileMap[n]||{};
+   const primary=overrideMap[n]||profile.primary||'';
+   const secondary=Array.isArray(profile.secondary)?profile.secondary:[];
+   const same=pos>=0&&assigned(n);
+   const preferred=!!wanted&&roleMatch(primary);
+   const alternate=!!wanted&&secondary.some(roleMatch);
+   const tier=same||preferred?0:alternate?1:2;
+   const reason=same?'Samma position i annan femma':preferred?'Primär position':alternate?'Andraposition':'Valfri ersättare';
+   return {name:n,tier,reason};
+  }).sort((a,b)=>a.tier-b.tier||a.name.localeCompare(b.name,'sv'));
   if(!available.length){const msg=document.createElement('p');msg.textContent='Inga tillgängliga utespelare på bänken.';choices.append(msg);}
-  available.forEach(n=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=n;b.onclick=()=>{
-   if(!state.active?.players.includes(outName)||state.active.players.includes(n))return;
-   $('swapOut').value=outName;$('swapIn').value=n;$('swapOut2').value='';$('swapIn2').value='';
-   swapBox.hidden=true;delete swapBox.dataset.mcTapOut;swapPlayer();
-  };choices.append(b)});
+  for(const [tier,heading] of [[0,'⭐ Samma position'],[1,'↔ Kan spela positionen'],[2,'Övriga tillgängliga']]){
+   const group=recommendations.filter(x=>x.tier===tier);
+   if(!group.length)continue;
+   const section=document.createElement('div');section.className='mc-suggestion-group';
+   const h=document.createElement('strong');h.className='mc-suggestion-heading';h.textContent=heading;section.append(h);
+   for(const item of group){
+    const b=document.createElement('button');b.type='button';b.className='secondary mc-suggestion-button';
+    const n=document.createElement('span');n.textContent=item.name;const hint=document.createElement('small');hint.textContent=item.reason;
+    b.append(n,hint);b.onclick=()=>{
+     if(!state.active?.players.includes(outName)||state.active.players.includes(item.name))return;
+     if(activePenalties().some(p=>p.team==='own'&&p.player===item.name))return alert('Spelaren är utvisad och kan inte bytas in.');
+     $('swapOut').value=outName;$('swapIn').value=item.name;$('swapOut2').value='';$('swapIn2').value='';
+     swapBox.hidden=true;delete swapBox.dataset.mcTapOut;swapPlayer();
+    };section.append(b);
+   }
+   choices.append(section);
+  }
   swapBox.append(choices);
   const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary';cancel.textContent='Avbryt';cancel.style.marginTop='10px';cancel.onclick=()=>{swapBox.hidden=true;swapBox.replaceChildren()};swapBox.append(cancel);
  }
