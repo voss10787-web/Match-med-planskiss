@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="sv"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>Öjaby Matchcoach – Godkänd plan TEST</title><style>body{font-family:system-ui;background:#0b1728;color:#eef5ff;margin:0;padding:16px}main{max-width:1100px;margin:auto}h1{margin:0}small,.muted{color:#9fb0c7}.panel{background:#17283e;border:1px solid #31445e;border-radius:14px;padding:16px;margin:12px 0}button,select,input{font:inherit;border-radius:8px;padding:10px;border:1px solid #536983}button{background:#2563eb;color:white;cursor:pointer;font-weight:650}button.secondary{background:#34475e}button.danger{background:#a42c40}button.active{background:#159268}button:disabled{opacity:.45}input,select{background:#0d1c30;color:white;max-width:100%}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.clock{font-size:38px;font-variant-numeric:tabular-nums;font-weight:800}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid #354861;text-align:left;padding:8px}th{color:#a9c9f8}label{display:block;font-size:13px;color:#b8cbe1;margin:5px 0}.five{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px} .five select{width:100%;font-size:14px;padding:7px}.tag{border-radius:20px;padding:4px 9px;background:#304661} .scroll{overflow:auto} .help{font-size:13px;color:#bed0e4} .stat{font-size:24px;font-weight:800} .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px} .grid>div{background:#213650;border-radius:9px;padding:12px} .swapbox{border:1px solid #46627d;border-radius:12px;padding:12px;margin-top:12px;background:#203651}.swapbox select{min-width:125px}.swapbox button{background:#159268}.warningcard{border:2px solid #f5b942!important;background:#4b391c!important}.warninglabel{color:#ffcf70;font-weight:800;font-size:.8rem}.warninglist{display:flex;flex-wrap:wrap;gap:8px}.warningpill{background:#4b391c;border:1px solid #dba337;border-radius:9px;padding:9px 12px}.okpill{color:#a5e7bc} 
+<html lang="sv"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>Öjaby Matchcoach</title><style>body{font-family:system-ui;background:#0b1728;color:#eef5ff;margin:0;padding:16px}main{max-width:1100px;margin:auto}h1{margin:0}small,.muted{color:#9fb0c7}.panel{background:#17283e;border:1px solid #31445e;border-radius:14px;padding:16px;margin:12px 0}button,select,input{font:inherit;border-radius:8px;padding:10px;border:1px solid #536983}button{background:#2563eb;color:white;cursor:pointer;font-weight:650}button.secondary{background:#34475e}button.danger{background:#a42c40}button.active{background:#159268}button:disabled{opacity:.45}input,select{background:#0d1c30;color:white;max-width:100%}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.clock{font-size:38px;font-variant-numeric:tabular-nums;font-weight:800}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid #354861;text-align:left;padding:8px}th{color:#a9c9f8}label{display:block;font-size:13px;color:#b8cbe1;margin:5px 0}.five{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px} .five select{width:100%;font-size:14px;padding:7px}.tag{border-radius:20px;padding:4px 9px;background:#304661} .scroll{overflow:auto} .help{font-size:13px;color:#bed0e4} .stat{font-size:24px;font-weight:800} .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px} .grid>div{background:#213650;border-radius:9px;padding:12px} .swapbox{border:1px solid #46627d;border-radius:12px;padding:12px;margin-top:12px;background:#203651}.swapbox select{min-width:125px}.swapbox button{background:#159268}.warningcard{border:2px solid #f5b942!important;background:#4b391c!important}.warninglabel{color:#ffcf70;font-weight:800;font-size:.8rem}.warninglist{display:flex;flex-wrap:wrap;gap:8px}.warningpill{background:#4b391c;border:1px solid #dba337;border-radius:9px;padding:9px 12px}.okpill{color:#a5e7bc} 
 #quickPanel .quickSpecial{margin:12px 0 16px;padding:12px;border:1px solid #425b76;border-radius:12px;background:#14283f}
 #quickPanel .quickSpecial .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 #quickPanel .quickSpecial button{width:100%;min-height:56px;padding:12px 8px}
@@ -2548,7 +2548,7 @@ function commitPosition(){
  const found=candidates[0];
  if(found.shotmap)return false;
  smEnsureEventIds();
- found.shotmap={x:selected.x,y:selected.y,team:pending.team,eventId:found.smEventId,created:Date.now()};
+ found.shotmap={x:selected.x,y:selected.y,team:pending.team,eventId:found.smEventId,created:Date.now(),ownAttackTop:smOwnTop(),attackTop:pending.team==='own'?smOwnTop():!smOwnTop(),directionVersion:1,period:Number(state.period||1)};
  save();smCancelPending();if($('smAnalysisPanel')?.getClientRects().length)requestAnimationFrame(drawAnalysis);return true;
 }
 function waitForEvent(){
@@ -3623,7 +3623,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const isGoal=s=>s.goal===true||s.type==='Mål'||s.type==='Mål framåt'||s.type==='Mål bakåt';
+const isGoal=s=>!s.penaltyShotShootout&&!s.shootout&&(s.goal===true||s.type==='Mål'||s.type==='Mål framåt'||s.type==='Mål bakåt');
 function normalize(sh,real){
  const p=real?sh.shotmap:sh;if(!p)return null;
  const x=Number(p.x),y=Number(p.y);if(!Number.isFinite(x)||!Number.isFinite(y))return null;
@@ -3632,9 +3632,13 @@ function normalize(sh,real){
  if(nx<0||nx>1||ny<0||ny>1)return null;
  let team=real?(p.team||((sh.type==='Mål bakåt'||sh.type==='Motståndarskott'||sh.type==='Motståndarskott på mål')?'opp':'own')):sh.team;
  if(team!=='own'&&team!=='opp')return null;
- return {x:nx,y:ny,team,goal:isGoal(sh),type:sh.type||'',period:Number(sh.period)||0};
+ const knownDirection=real&&typeof p.attackTop==='boolean';
+ // Normalise positioned real shots so that the attacking goal is always at the TOP.
+ // Legacy positions remain in raw coordinates and are explicitly marked uncertain.
+ const mappedY=knownDirection&&!p.attackTop?1-ny:ny;
+ return {x:nx,y:mappedY,team,goal:isGoal(sh),type:sh.type||'',period:Number(sh.period)||0,directionKnown:!real||knownDirection};
 }
-function extract(data,real){let raw=real?(data||[]).flatMap(m=>(m.events||[]).filter(e=>e&&e.shotmap&&/mål|skott/i.test(e.type||''))):(data||[]).flatMap(m=>m.shots||[]);
+function extract(data,real){let raw=real?(data||[]).flatMap(m=>(m.events||[]).filter(e=>e&&!e.penaltyShotShootout&&!e.shootout&&e.shotmap&&/mål|skott/i.test(e.type||''))) :(data||[]).flatMap(m=>(m.shots||[]).filter(e=>!e.penaltyShotShootout&&!e.shootout));
  return {all:raw,pts:raw.map(s=>normalize(s,real)).filter(Boolean)};
 }
 function bins(pts){const b=Array.from({length:9},(_,i)=>({i,n:0,goals:0}));for(const p of pts){const col=Math.min(2,Math.floor(p.x*3)),row=Math.min(2,Math.floor(p.y*3));const z=b[row*3+col];z.n++;if(p.goal)z.goals++;}return b;}
@@ -3653,7 +3657,7 @@ function draw(panel,kind){
  const team=panel.querySelector('[data-h="team"]').value;
  const mode=panel.querySelector('[data-h="mode"]').value;
  const source=scope==='match'?(archive[selected]?[archive[selected]]:[]):archive;
- const {all,pts}=extract(source,real);const picked=pts.filter(p=>p.team===team);const b=bins(picked);
+ const {all,pts}=extract(source,real);const picked=pts.filter(p=>p.team===team&&p.directionKnown);const unknown=pts.filter(p=>p.team===team&&!p.directionKnown).length;const b=bins(picked);
  const max=Math.max(1,...b.map(z=>mode==='goals'?z.goals:z.n));
  const rx=12,ry=12,rw=216,rh=416,cw=rw/3,ch=rh/3;
  let svg='<defs><clipPath id="mcCourt"><rect x="12" y="12" width="216" height="416" rx="24"/></clipPath></defs><rect x="12" y="12" width="216" height="416" rx="24" fill="#215869"/>';
@@ -3674,7 +3678,7 @@ function draw(panel,kind){
  panel.querySelector('.mcHeatInfo').textContent=`${team==='own'?'Öjaby':'Motståndare'} · ${scope==='season'?'Hela säsongen':'Vald match'} · ${picked.length} positionssatta skottförsök · ${goals} mål · ${picked.length?(100*goals/picked.length).toFixed(1):'–'} % mål/försök.`;
  const names=['Övre vänster','Övre mitten','Övre höger','Mitten vänster','Mitten','Mitten höger','Nedre vänster','Nedre mitten','Nedre höger'];
  panel.querySelector('.mcHeatStats').innerHTML='<table><thead><tr><th>Zon</th><th>Försök</th><th>Mål</th><th>Effektivitet</th></tr></thead><tbody>'+b.map(z=>`<tr><td>${names[z.i]}</td><td>${z.n}</td><td>${z.goals}</td><td>${z.n?(100*z.goals/z.n).toFixed(1)+' %':'–'}</td></tr>`).join('')+'</tbody></table>';
- panel.querySelector('.mcHeatWarn').textContent=(real?'Riktiga registrerade positioner. Saknade positioner visas inte; riktning och anfallszoner är inte normaliserade mellan perioder.':'Fiktiv demo: skottpunkter och skyttar är illustrativt genererade, inte uppmätta matchhändelser.')+` ${pts.length} av ${all.length} skotthändelser har användbara positioner. En zon med få försök ska inte tolkas som en säker styrka eller svaghet.`;
+ panel.querySelector('.mcHeatWarn').textContent=(real?'Nya skott normaliseras mot anfallande mål (överst). '+unknown+' äldre skott utan sparad anfallsriktning utesluts från zonanalysen.':'Fiktiv demo: skottpunkter och skyttar är illustrativt genererade, inte uppmätta matchhändelser.')+` ${pts.length} av ${all.length} skotthändelser har användbara positioner. En zon med få försök ska inte tolkas som en säker styrka eller svaghet.`;
 }
 function scan(){document.querySelectorAll('.mcHeatMount').forEach(host=>{if(host.dataset.heatReady)return;host.dataset.heatReady='1';make(host,host.dataset.heatSeason)});
  const season=$('seasonPanel');if(season&&!$('mcRealHeatPanel')){const box=document.createElement('div');box.id='mcRealHeatPanel';season.parentNode.insertBefore(box,season);make(box,'real');
