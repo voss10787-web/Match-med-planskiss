@@ -4122,4 +4122,88 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+
+<style id="mc-testcenter-3-css">
+#mcTc3{border:1px solid #55a2a1;border-radius:12px;background:#102c39;padding:14px;margin:12px 0}
+#mcTc3 button{margin:4px 5px 4px 0}
+#mcTc3 .mc3-line{padding:8px 4px;border-bottom:1px solid #36556a;font-size:13px}
+#mcTc3 .mc3-good{color:#90edb8}#mcTc3 .mc3-bad{color:#ffaca5}
+#mcTc3 .mc3-progress{height:9px;background:#2b4960;border-radius:8px;overflow:hidden;margin:10px 0}
+#mcTc3 .mc3-progress span{display:block;width:0;height:100%;background:#48d3aa}
+</style>
+<script id="mc-testcenter-3">
+(function(){
+'use strict';
+function init(){
+ const tc=document.getElementById('mcTestCenter');
+ if(!tc||document.getElementById('mcTc3'))return;
+ const panel=document.createElement('section');panel.id='mcTc3';
+ panel.innerHTML='<h3>🧪 Testcenter 3.0 · samlad kvalitetskontroll</h3>'+
+ '<p class="help">En knapp kör simulerad match, regelmotorn, statistikmotorn och förbättringsanalysen. Resultaten gäller de kontroller som faktiskt är implementerade.</p>'+
+ '<button id="mc3Run" type="button">▶ Kör alla tester</button><button id="mc3Baseline" class="secondary" type="button">Spara som jämförelse</button>'+
+ '<div class="mc3-progress"><span id="mc3Progress"></span></div><div id="mc3Status" class="help">Redo att köra</div>'+
+ '<div id="mc3Compare" class="help">Ingen jämförelse sparad.</div><h4>Sammanfattning och förbättringar</h4><div id="mc3Results" aria-live="polite"></div>'+
+ '<p class="help">Begränsning: full UI-registrering, Shotmap Pro:s riktiga koordinat-/sparflöde och faktisk säsongsarkivering ingår ännu inte. Dessa markeras som ej testade, inte godkända.</p>';
+ tc.insertBefore(panel,tc.firstChild);
+ const $=id=>document.getElementById(id);
+ let latest=null,baseline=null,busy=false;
+ const pause=()=>new Promise(resolve=>setTimeout(resolve,0));
+ function line(message,kind){
+  const el=document.createElement('div');el.className='mc3-line'+(kind==='bad'?' mc3-bad':kind==='good'?' mc3-good':'');
+  el.textContent=message;$('mc3Results').append(el);
+ }
+ function parse(id){
+  const value=$(id)?.textContent||'';
+  const m=value.match(/(\d+)\s+godkända\s*[·•]\s*(\d+)\s+fel/i);
+  return m?{pass:Number(m[1]),fail:Number(m[2]),raw:value}:null;
+ }
+ function reportCompare(){
+  if(!baseline||!latest)return;
+  $('mc3Compare').textContent='Jämförelse: '+(latest.pass-baseline.pass>=0?'+':'')+(latest.pass-baseline.pass)+' godkända, '+(latest.fail-baseline.fail>=0?'+':'')+(latest.fail-baseline.fail)+' fel. Jämför samma appversion och testuppsättning för rättvis jämförelse.';
+ }
+ async function run(){
+  if(busy)return;
+  busy=true;$('mc3Run').disabled=true;$('mc3Results').replaceChildren();$('mc3Progress').style.width='0%';
+  try{
+   const scenario=$('mcTcScenario');if(scenario)scenario.value='full';
+   $('mcTcReset')?.click();
+   line('1/4 · Simulerar full match i separat testcenter');
+   for(let i=0;i<100;i++){
+    if($('mcTcStatus')?.textContent==='Färdig')break;
+    $('mcTcNext')?.click();
+    if(i%5===0){$('mc3Progress').style.width=Math.round(20*i/30)+'%';await pause()}
+   }
+   const finished=$('mcTcStatus')?.textContent==='Färdig';
+   line(finished?'✓ Full match uppspelad':'✕ Matchuppspelningen kunde inte slutföras',finished?'good':'bad');
+   $('mc3Progress').style.width='25%';await pause();
+   line('2/4 · Kör regelfunktionernas motortest');
+   $('mcEngRun')?.click();const engine=parse('mcEngStatus');
+   line(engine?'Regelmotor: '+engine.pass+' godkända, '+engine.fail+' fel':'Regelmotor: kunde inte läsa testresultat',engine&&engine.fail===0?'good':'bad');
+   $('mc3Progress').style.width='50%';await pause();
+   line('3/4 · Kör statistik- och dataintegritetstest');
+   $('mcItRun')?.click();const stats=parse('mcItSummary');
+   line(stats?'Statistik: '+stats.pass+' godkända, '+stats.fail+' fel':'Statistik: kunde inte läsa testresultat',stats&&stats.fail===0?'good':'bad');
+   $('mc3Progress').style.width='75%';await pause();
+   line('4/4 · Analyserar simulerad match');
+   $('tcvAnalyze')?.click();
+   const analysis=$('tcvChecks')?.textContent?.match(/^(\d+)\s*\/\s*(\d+)$/);
+   const a=analysis?{pass:Number(analysis[1]),fail:Number(analysis[2])-Number(analysis[1])}:null;
+   line(a?'Förbättringsanalys: '+a.pass+' godkända, '+a.fail+' fel':'Förbättringsanalys: resultat saknas',a&&a.fail===0?'good':'bad');
+   const suggestions=Array.from(document.querySelectorAll('#tcvReport p')).filter(p=>/^\[(Hög|Medel|Låg|Info)\]/.test(p.textContent||''));
+   suggestions.slice(0,5).forEach(p=>line('Förslag: '+p.textContent));
+   line('Ej testat: faktisk Shotmap Pro-registrering, matchknappar och skrivning till säsongsarkivet.');
+   const parts=[engine,stats,a];const pass=parts.reduce((n,p)=>n+(p?.pass||0),0);const fail=parts.reduce((n,p)=>n+(p?.fail||0),0)+(finished?0:1)+parts.filter(p=>!p).length;
+   latest={pass,fail,finished,scenario:'full',version:'3.0'};
+   $('mc3Status').textContent='Klart · '+pass+' godkända · '+fail+' fel'+(fail?' · åtgärd krävs':' · alla genomförda kontroller gröna');
+   $('mc3Status').className=fail?'mc3-bad':'mc3-good';
+   $('mc3Progress').style.width='100%';reportCompare();
+  }catch(err){$('mc3Status').textContent='Testet avbröts: '+String(err);$('mc3Status').className='mc3-bad';line('Testfel: '+String(err),'bad')}
+  finally{busy=false;$('mc3Run').disabled=false}
+ }
+ $('mc3Run').addEventListener('click',run);
+ $('mc3Baseline').addEventListener('click',()=>{if(!latest){$('mc3Compare').textContent='Kör först alla tester.';return}baseline={...latest};$('mc3Compare').textContent='Jämförelse sparad i denna öppna session: '+baseline.pass+' godkända, '+baseline.fail+' fel.'});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 </body></html>
