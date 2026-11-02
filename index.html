@@ -2422,7 +2422,15 @@ function group(parent,title,ids,open){
  const d=document.createElement('details');d.className='mc-section-group';d.open=!!open;
  const sum=document.createElement('summary');sum.textContent=title;d.append(sum);
  let count=0;
- for(const id of ids){const el=byId(id);if(el){d.append(el);count++}}
+ for(const id of ids){const el=byId(id);if(el){
+  // The outer Snabbbyten disclosure owns visibility. Its hidden inner heading
+  // must never leave the controls trapped behind a second collapsed panel.
+  if(id==='swapPanel'){
+   el.classList.remove('mc-foldable','mc-folded');
+   el.querySelector(':scope > h2 > .mc-fold-button')?.remove();
+  }
+  d.append(el);count++;
+ }}
  if(count)parent.append(d);
  return count?d:null;
 }
