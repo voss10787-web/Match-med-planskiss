@@ -540,6 +540,7 @@ if(i===3&&state.active?.players?.length){
  // Retain position information for a later special substitution.
  state.mcNextSpecialPositions=nextSlots;
 }
+if(players.some(n=>mcExcludedBP().has(n)))return alert('En utvisad spelare kan inte sättas in i femman.');
 const absent=players.filter(n=>!roster.some(p=>p.name===n&&p.active&&!p.goalie));if(absent.length)return alert('Följande spelare är inte uttagna: '+absent.join(', ')+'. Ändra femman under Kedjor eller matchtruppen.');if(!players.length)return alert('Välj spelare först.');if((i===5||i===7)&&players.length!==mcBPRequired())return alert('Boxplay kräver '+mcBPRequired()+' tillgängliga utespelare.');if(state.active?.line===i&&players.length===state.active.players.length&&players.every(n=>state.active.players.includes(n)))return;closeActive();state.active={line:i,players,start:elapsed(),period:state.period};
 state.active.positionPlayers=(i===3&&state.mcNextSpecialPositions)?state.mcNextSpecialPositions:mcSlotsForActive(state.active);
 delete state.mcNextSpecialPositions;
@@ -1184,7 +1185,7 @@ function quickRender(){
   const makeOption=(select,value,label)=>{const opt=document.createElement('option');opt.value=value;opt.textContent=label;select.append(opt)};
   makeOption(out,'','Spelare UT');makeOption(inside,'','Spelare IN');
   state.active.players.forEach(n=>makeOption(out,n,n));
-  (window.mcV3Rank?window.mcV3Rank(oldOut,names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)),state.active):names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie))).forEach(n=>makeOption(inside,n,n));
+  (window.mcV3Rank?window.mcV3Rank(oldOut,mcAvailableForSwap(),state.active):mcAvailableForSwap()).forEach(n=>makeOption(inside,n,n));
   out.onchange=()=>{const prev=inside.value;inside.replaceChildren();makeOption(inside,'','Spelare IN');const list=mcAvailableForSwap();(window.mcV3Rank?window.mcV3Rank(out.value,list,state.active):list).forEach(n=>makeOption(inside,n,n));if(list.includes(prev))inside.value=prev;};
   if([...out.options].some(o=>o.value===oldOut))out.value=oldOut;
   if([...inside.options].some(o=>o.value===oldIn))inside.value=oldIn;
