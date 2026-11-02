@@ -3859,4 +3859,33 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+
+<style id="mc-nav-position-20261102">
+#mcViewNav{margin-top:14px!important;margin-bottom:10px!important}
+#mcTestCenterToggle{margin-top:8px!important}
+</style>
+<script id="mc-nav-after-quickcoach">
+(function(){
+ 'use strict';
+ function ready(){
+  const nav=document.getElementById('mcViewNav'),match=document.getElementById('mcMatchView'),quick=document.getElementById('quickPanel'),toggle=document.getElementById('mcTestCenterToggle'),center=document.getElementById('mcTestCenter');
+  if(!nav||!match||!quick)return;
+  // Match: keep the top scoreboard and quick coach unobstructed.
+  // Other views: keep navigation visible outside the hidden match view.
+  function relocate(){
+   const isMatch=!match.hidden;
+   const target=isMatch?quick:match;
+   if(isMatch){if(quick.nextElementSibling!==nav)quick.after(nav)}
+   else{if(nav.nextElementSibling!==match)match.before(nav)}
+   if(toggle&&toggle.previousElementSibling!==nav)nav.after(toggle);
+   if(center&&toggle&&center.previousElementSibling!==toggle)toggle.after(center);
+  }
+  // Capture runs before existing tab handlers hide the match page.
+  nav.addEventListener('click',function(){if(!match.hidden)match.before(nav);if(toggle)nav.after(toggle);if(center&&toggle)toggle.after(center);queueMicrotask(relocate)},true);
+  new MutationObserver(relocate).observe(match,{attributes:true,attributeFilter:['hidden']});
+  relocate();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
+})();
+</script>
 </body></html>
