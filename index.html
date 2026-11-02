@@ -3976,4 +3976,75 @@ function ready(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
 })();
 </script>
+
+<style id="mc-testengine-style">
+#mcEnginePanel{background:#102c3b;border:1px solid #3b897e;border-radius:12px;padding:12px;margin:12px 0}
+#mcEnginePanel .mceng-line{font-size:13px;border-bottom:1px solid #2a4a59;padding:6px}
+#mcEnginePanel .mceng-ok{color:#8ce6b2}#mcEnginePanel .mceng-fail{color:#ffb0a9}
+</style>
+<script id="mc-real-core-sandbox-v1">
+(function(){
+'use strict';
+const source="function matchTime(period=state.period,sec=elapsed()){return (Number(period)-1)*900+sec}\nfunction penaltyEnd(p){return p.endedAt??(matchTime(p.period,p.time)+p.minutes*60)}\nfunction activePenalties(at=matchTime()){return (state.penalties||[]).filter(p=>matchTime(p.period,p.time)<=at&&penaltyEnd(p)>at)}\nfunction penaltyMode(at=matchTime()){const active=activePenalties(at);const own=active.filter(p=>p.team==='own'&&p.minutes!==10).length,opp=active.filter(p=>p.team==='opp'&&p.minutes!==10).length;return own>opp?'BP':opp>own?'PP':'5v5'}\nfunction canEndMinorOnGoal(type,at){const active=activePenalties(at);const own=active.filter(p=>p.team==='own'&&p.minutes!==10).length,opp=active.filter(p=>p.team==='opp'&&p.minutes!==10).length;const penalized=type==='Mål framåt'&&opp>own?'opp':type==='Mål bakåt'&&own>opp?'own':null;return !!(penalized&&active.some(p=>p.team===penalized&&p.minutes===2));}\nfunction endMinorOnGoal(type,at,ask=false){\n const active=activePenalties(at);\n const own=active.filter(p=>p.team==='own'&&p.minutes!==10).length;\n const opp=active.filter(p=>p.team==='opp'&&p.minutes!==10).length;\n // Only a goal by the team with a numerical advantage can end a minor.\n const penalized=type==='Mål framåt'&&opp>own?'opp':type==='Mål bakåt'&&own>opp?'own':null;\n if(!penalized)return null;\n const candidates=active.filter(p=>p.team===penalized&&p.minutes===2)\n  .sort((a,b)=>matchTime(a.period,a.time)-matchTime(b.period,b.time));\n if(!candidates.length)return null;\n const p=candidates[0]; // Oldest active two-minute penalty ends first.\n if(ask){\n  const side=penalized==='own'?'Öjaby':'motståndarna';\n  const scorer=type==='Mål framåt'?'Öjaby':'motståndarna';\n  const remain=Math.max(0,Math.ceil(penaltyEnd(p)-at));\n  const player=p.player?' ('+p.player+')':'';\n  const remaining=candidates.length-1;\n  const msg=scorer+' har gjort mål i numerärt överläge.\\\\n\\\\n'+\n   'Vill du avsluta '+side+'s äldsta 2-minutersutvisning'+player+\n   '?\\\\nTid kvar: '+fmt(remain)+'.\\\\n'+\n   (remaining?'Ytterligare '+remaining+' aktiv(a) 2-minutersutvisning(ar) kvarstår.\\\\n':'')+\n   '\\\\nOK = avsluta utvisningen\\\\nAvbryt = låt utvisningen fortsätta';\n  if(!confirm(msg))return null;\n }\n p.endedAt=at;p.endedByGoal=true;\n return p;\n}\nfunction mcExcludedBP(){return new Set(activePenalties().filter(p=>p.team==='own'&&p.player).map(p=>p.player))}\nfunction mcBPRequired(){const own=activePenalties().filter(p=>p.team==='own'&&p.minutes!==10).length;const opp=activePenalties().filter(p=>p.team==='opp'&&p.minutes!==10).length;return Math.max(3,Math.min(4,5-Math.max(0,own-opp)))}\nfunction mcSlotsForActive(active){\n if(!active)return Array(5).fill('');\n if(Array.isArray(active.positionPlayers)&&active.positionPlayers.length===5)return [...active.positionPlayers];\n const indices=(active.line===5||active.line===7)?[0,1,3,4]:[0,1,2,3,4];\n const template=state.lines[active.line]||[];\n const slots=Array(5).fill('');\n // Prefer the actual selected slot when there are gaps in the lineup.\n for(const name of active.players||[]){\n  let slot=template.findIndex((n,i)=>n===name&&indices.includes(i)&&!slots[i]);\n  if(slot<0)slot=indices.find(i=>!slots[i]);\n  if(slot!==undefined&&slot>=0)slots[slot]=name;\n }\n return slots;\n}\nfunction mcAvailableForSwap(){\n const blocked=mcExcludedBP();\n return names.filter(n=>!state.active?.players.includes(n)&&!blocked.has(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));\n}";
+function init(){
+ const tc=document.getElementById('mcTestCenter');if(!tc||document.getElementById('mcEnginePanel'))return;
+ const p=document.createElement('section');p.id='mcEnginePanel';
+ p.innerHTML='<h3>⚙️ Isolerad matchmotor · riktiga regelfunktioner</h3><p class="help">Kör en syntetisk match med kopior av de riktiga regelfunktionerna från denna version av Matchcoach. Körs i eget minne utan att skriva till appens matchdata.</p><div class="row"><button id="mcEngRun" type="button">▶ Kör motortest</button><button id="mcEngRepeat" type="button" class="secondary">↻ Kör samma test igen</button></div><div id="mcEngStatus" class="help">Redo</div><div id="mcEngResults" style="max-height:360px;overflow:auto"></div><p class="help">Avgränsning: detta testar verklig logik för utvisning, numerärt läge och spelarbehörighet. UI-registrering, Shotmap Pro och arkiv testas ännu inte i denna motor.</p>';
+ const v2=document.getElementById('mcTcV2');(v2||tc).after(p);
+ const $=id=>document.getElementById(id);
+ function run(){
+  const out=$('mcEngResults');out.replaceChildren();
+  let passes=0,fails=0,events=0;
+  function check(label,condition,detail){
+   const ok=!!condition;ok?passes++:fails++;
+   const el=document.createElement('div');el.className='mceng-line '+(ok?'mceng-ok':'mceng-fail');
+   el.textContent=(ok?'✓ ':'✕ ')+label+(detail===undefined?'':' · '+String(detail));out.append(el);
+  }
+  const names=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
+  const roster=names.map(name=>({name,active:true,goalie:false}));
+  const state={period:1,seconds:0,penalties:[],lines:[['A','B','C','D','E'],['F','G','H','I','J'],['K','L','M','N','O'],[],[],['A','B','','D','E'],[],[]],active:{line:0,players:['A','B','C','D','E'],period:1,start:0,positionPlayers:['A','B','C','D','E']},events:[],shifts:[],mode:'5v5'};
+  let engine;
+  try{engine=new Function('state','names','roster','elapsed','fmt','confirm',source+';return {matchTime,penaltyEnd,activePenalties,penaltyMode,canEndMinorOnGoal,endMinorOnGoal,mcExcludedBP,mcBPRequired,mcSlotsForActive,mcAvailableForSwap}')(state,names,roster,()=>state.seconds,n=>String(n),()=>true)}
+  catch(e){check('Ladda regelfunktioner',false,e.message);$('mcEngStatus').textContent='Motortest kunde inte starta';return}
+  function time(period,sec){state.period=period;state.seconds=sec;events++}
+  function penalty(team,player,minutes){state.penalties.push({team,player,minutes,period:state.period,time:state.seconds});events++}
+  function swap(line,players){const old=state.active;if(old)state.shifts.push({...old,end:state.seconds,duration:Math.max(0,state.seconds-old.start)});state.active={line,players:[...players],start:state.seconds,period:state.period,positionPlayers:engine.mcSlotsForActive({line,players})};events++}
+  function goal(team){const type=team==='own'?'Mål framåt':'Mål bakåt',at=engine.matchTime();const mode=engine.penaltyMode(at),ended=engine.endMinorOnGoal(type,at);state.events.push({period:state.period,time:state.seconds,type,mode,players:[...state.active.players],penaltyEnded:!!ended});events++;return ended}
+  time(1,0);check('Startläge 5 mot 5',engine.penaltyMode()==='5v5');
+  time(1,75);swap(1,['F','G','H','I','J']);
+  check('Femmabyte ger positiv speltid',state.shifts[0].duration===75);
+  time(1,180);penalty('own','A',2);
+  check('Egen utvisning ger BP',engine.penaltyMode()==='BP');
+  check('Utvisad spärrad vid byte',engine.mcExcludedBP().has('A')&&!engine.mcAvailableForSwap().includes('A'));
+  check('BP kräver fyra utespelare',engine.mcBPRequired()===4);
+  swap(5,['B','D','E','F']);
+  check('BP saknar utvisad spelare',!state.active.players.includes('A'));
+  time(1,230);check('Utvisningen aktiv efter 50 sekunder',engine.activePenalties().length===1);
+  time(1,300);check('Utvisning slutar vid 120 sekunder',engine.activePenalties().length===0);
+  time(1,360);swap(0,['A','B','C','D','E']);
+  check('Utvisad spelare åter behörig',engine.mcAvailableForSwap().includes('F')&&!engine.mcExcludedBP().has('A'));
+  time(1,420);penalty('opp','X',2);
+  check('Motståndarutvisning ger PP',engine.penaltyMode()==='PP');
+  time(1,460);const ended=goal('own');
+  check('PP-mål avslutar tvåminutersutvisning',ended?.endedByGoal===true&&ended.endedAt===460);
+  check('Åter till 5 mot 5 efter PP-mål',engine.penaltyMode()==='5v5');
+  time(1,540);penalty('own','B',2);
+  time(1,570);check('Mål i numerärt underläge kvittar inte',goal('own')===null&&engine.penaltyMode()==='BP');
+  time(1,660);check('Tvåminutersutvisning går ut automatiskt',engine.penaltyMode()==='5v5');
+  time(1,720);penalty('own','C',10);
+  check('Tiominutersutvisning ändrar inte numerärt läge',engine.penaltyMode()==='5v5');
+  time(1,800);check('Positionslista med lucka bevaras',JSON.stringify(engine.mcSlotsForActive({line:0,players:['A','C'],positionPlayers:['A','','C','','']}))===JSON.stringify(['A','','C','','']));
+  time(1,900);state.active=null;time(2,0);swap(1,['F','G','H','I','J']);time(2,900);state.active=null;time(3,0);swap(2,['K','L','M','N','O']);time(3,900);
+  check('Matchtid efter tre perioder 2700 sekunder',engine.matchTime()===2700);
+  check('Inga negativa bytestider',state.shifts.every(x=>x.duration>=0));
+  check('Alla händelser har giltiga perioder',state.events.every(e=>Number(e.period)>=1&&Number(e.period)<=3));
+  $('mcEngStatus').textContent=passes+' godkända · '+fails+' fel · '+events+' simulerade motorsteg · 3 perioder';
+  $('mcEngStatus').className=fails?'mceng-fail':'mceng-ok';
+  if(fails){const warn=document.createElement('p');warn.className='mceng-fail';warn.textContent='FEL: Kontrollera de röda testfallen före nästa publicering.';out.prepend(warn)}
+ }
+ $('mcEngRun').addEventListener('click',run);$('mcEngRepeat').addEventListener('click',run);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 </body></html>
