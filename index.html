@@ -4230,10 +4230,17 @@ function init(){
    const scenario=$('mcTcScenario');if(scenario)scenario.value='full';
    $('mcTcReset')?.click();
    line('1/4 · Simulerar full match i separat testcenter');
-   for(let i=0;i<100;i++){
-    if($('mcTcStatus')?.textContent==='Färdig')break;
-    $('mcTcNext')?.click();
-    if(i%5===0){$('mc3Progress').style.width=Math.min(24,Math.round(20*i/30))+'%';await pause()}
+   const next=$('mcTcNext'),status=$('mcTcStatus');
+   if(!next||!status)throw new Error('Matchuppspelningens kontroller saknas');
+   while(status.textContent!=='Färdig'){
+    const before=status.textContent;
+    const progress=before.match(/^Händelse (\d+) av (\d+)$/);
+    if(!progress)throw new Error('Okänd uppspelningsstatus: '+before);
+    const completed=Number(progress[1]),total=Number(progress[2]);
+    if(total<=0||completed>=total)throw new Error('Ogiltigt antal matchhändelser');
+    next.click();
+    if(status.textContent===before)throw new Error('Matchuppspelningen stannade vid '+before);
+    if((completed+1)%5===0){$('mc3Progress').style.width=Math.min(24,Math.round(24*(completed+1)/total))+'%';await pause()}
    }
    const finished=$('mcTcStatus')?.textContent==='Färdig';
    line(finished?'✓ Full match uppspelad':'✕ Matchuppspelningen kunde inte slutföras',finished?'good':'bad');
