@@ -500,9 +500,27 @@ async function mcBPOnPenalty(){
   }else{closeActive();save()}
  }
 }
+function mcSlotsForActive(active){
+ if(!active)return Array(5).fill('');
+ if(Array.isArray(active.positionPlayers)&&active.positionPlayers.length===5)return [...active.positionPlayers];
+ const indices=(active.line===5||active.line===7)?[0,1,3,4]:[0,1,2,3,4];
+ const template=state.lines[active.line]||[];
+ const slots=Array(5).fill('');
+ // Prefer the actual selected slot when there are gaps in the lineup.
+ for(const name of active.players||[]){
+  let slot=template.findIndex((n,i)=>n===name&&indices.includes(i)&&!slots[i]);
+  if(slot<0)slot=indices.find(i=>!slots[i]);
+  if(slot!==undefined&&slot>=0)slots[slot]=name;
+ }
+ return slots;
+}
+function mcAvailableForSwap(){
+ const blocked=mcExcludedBP();
+ return names.filter(n=>!state.active?.players.includes(n)&&!blocked.has(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));
+}
 function closeActive(){if(state.active){state.shifts.push({...state.active,end:elapsed(),duration:Math.max(0,elapsed()-state.active.start)});state.active=null}}
 async function switchLine(i){if(elapsed()>=900)return alert('Perioden är slut. Byt period innan du sätter in en femma.');if(i>=0&&i<=2)state.lastNormalLine=i;
-let selected=state.lines[i].filter((name,j)=>name&&(i!==5&&i!==7||j!==2));if(new Set(selected).size!==selected.length)return alert('Samma spelare kan inte stå på flera positioner i samma femma.');let players=[...selected];if(i===5||i===7){if(!await mcBPPrompt(i))return;players=mcBPPlayers(i);}
+let selected=state.lines[i].filter((name,j)=>name&&(i!==5&&i!==7||j!==2));if(new Set(selected).size!==selected.length)return alert('Samma spelare kan inte stå på flera positioner i samma femma.');if(i!==5&&i!==7&&selected.some(n=>mcExcludedBP().has(n)))return alert('En utvisad spelare finns i femman. Ändra femman innan den sätts in.');let players=[...selected];if(i===5||i===7){if(!await mcBPPrompt(i))return;players=mcBPPlayers(i);}
 if(i===3&&new Set(state.lines[3].filter(Boolean)).size!==state.lines[3].filter(Boolean).length)return alert('Extra/special innehåller samma spelare på flera positioner.');
 if(i===3&&state.active?.players?.length){
  // Extra/special: only selected positions change. All blank positions remain on court.
@@ -513,8 +531,7 @@ if(i===3&&state.active?.players?.length){
    currentSlots=[...old.positionPlayers];
  }else{
    // Active players are stored in position order. BP has no center.
-   const positions=(old.line===5||old.line===7)?[0,1,3,4]:[0,1,2,3,4];
-   positions.forEach((pos,k)=>{currentSlots[pos]=old.players[k]||''});
+   currentSlots=mcSlotsForActive(old);
  }
  const extra=state.lines[3];
  const nextSlots=currentSlots.map((name,pos)=>extra[pos]||name);
@@ -523,13 +540,14 @@ if(i===3&&state.active?.players?.length){
  // Retain position information for a later special substitution.
  state.mcNextSpecialPositions=nextSlots;
 }
+if(players.some(n=>mcExcludedBP().has(n)))return alert('En utvisad spelare kan inte sättas in i femman.');
 const absent=players.filter(n=>!roster.some(p=>p.name===n&&p.active&&!p.goalie));if(absent.length)return alert('Följande spelare är inte uttagna: '+absent.join(', ')+'. Ändra femman under Kedjor eller matchtruppen.');if(!players.length)return alert('Välj spelare först.');if((i===5||i===7)&&players.length!==mcBPRequired())return alert('Boxplay kräver '+mcBPRequired()+' tillgängliga utespelare.');if(state.active?.line===i&&players.length===state.active.players.length&&players.every(n=>state.active.players.includes(n)))return;closeActive();state.active={line:i,players,start:elapsed(),period:state.period};
-if(i===3&&state.mcNextSpecialPositions)state.active.positionPlayers=state.mcNextSpecialPositions;
+state.active.positionPlayers=(i===3&&state.mcNextSpecialPositions)?state.mcNextSpecialPositions:mcSlotsForActive(state.active);
 delete state.mcNextSpecialPositions;
 if([4,5,6,7].includes(i))state.mode=(i===4||i===6)?'PP':'BP';else state.mode=penaltyMode();save();render()}
 function renderSwap(){
 const on=state.active?.players||[];
-const available=names.filter(n=>!on.includes(n));
+const available=mcAvailableForSwap();
 for(const [outId,inId] of [['swapOut','swapIn'],['swapOut2','swapIn2']]){
  const out=$(outId),inside=$(inId),oldOut=out.value,oldIn=inside.value;
  out.innerHTML='<option value="">– välj –</option>'+on.map(n=>`<option>${n}</option>`).join('');
@@ -552,13 +570,14 @@ function swapPlayer(){
  const pairs=[first,...(second[0]?[second]:[])];
  const outgoing=pairs.map(p=>p[0]),incoming=pairs.map(p=>p[1]);
  if(new Set(outgoing).size!==outgoing.length||new Set(incoming).size!==incoming.length)return alert('Samma spelare kan inte väljas två gånger.');
+ if(incoming.some(n=>mcExcludedBP().has(n)))return alert('En utvisad spelare kan inte bytas in.');
  if(pairs.some(([o,i])=>!state.active.players.includes(o)||state.active.players.includes(i)||o===i))return alert('Ogiltigt byte. Välj spelare på planen som går UT och spelare på bänken som går IN.');
  const previous=state.active;
  closeActive();
  const replacements=new Map(pairs);
  const players=previous.players.map(n=>replacements.get(n)||n);
  state.active={line:previous.line,players,start:elapsed(),period:state.period};
- if(previous.line===3&&previous.positionPlayers)state.active.positionPlayers=previous.positionPlayers.map(n=>replacements.get(n)||n);
+ state.active.positionPlayers=mcSlotsForActive(previous).map(n=>replacements.get(n)||n);
  state.events.push({period:state.period,time:elapsed(),type:'Spelarbyte',players:pairs.flat(),mode:state.mode,scorer:'',assist:''});
  save();render();
 }
@@ -1090,10 +1109,7 @@ function quickRender(){
   if(active.line>=4&&active.line<=7){const note=document.createElement('div');note.className='mc-special-note';note.textContent='Efter PP/BP: välj själv Femma 1, 2, 3 eller Extra ovan. Ingen automatisk återgång.';activeBox.append(note);}
   const namesBox=document.createElement('div');namesBox.className='mc-series-names';
   const positionLabels=['Vänster back','Höger back','Center','Vänster forward','Höger forward'];
-  const slots=Array.isArray(active.positionPlayers)?active.positionPlayers:(()=>{
-   const indices=(active.line===5||active.line===7)?[0,1,3,4]:[0,1,2,3,4];
-   const result=Array(5).fill('');active.players.forEach((n,i)=>{if(indices[i]!==undefined)result[indices[i]]=n;});return result;
-  })();
+  const slots=mcSlotsForActive(active);
   active.players.forEach(name=>{const el=document.createElement('button');el.type='button';el.className='mc-tap-player';
    const nameEl=document.createElement('span');nameEl.className='mc-tap-player-name';nameEl.textContent=name;
    const posEl=document.createElement('span');posEl.className='mc-tap-player-position';
@@ -1114,7 +1130,7 @@ function quickRender(){
   const choices=document.createElement('div');choices.className='mc-tap-swap-list mc-position-suggestions';
   const current=state.active;
   const slotIndices=(current.line===5||current.line===7)?[0,1,3,4]:[0,1,2,3,4];
-  const slots=Array.isArray(current.positionPlayers)?current.positionPlayers:(()=>{const a=Array(5).fill('');current.players.forEach((n,i)=>{if(slotIndices[i]!==undefined)a[slotIndices[i]]=n});return a})();
+  const slots=mcSlotsForActive(current);
   const pos=slots.indexOf(outName);
   const labels=['Vänster back','Höger back','Center','Vänster forward','Höger forward'];
   const roleNames=['Vänsterback','Högerback','Center','Vänsterforward','Högerforward'];
@@ -1124,7 +1140,7 @@ function quickRender(){
   const overrides=(()=>{try{return JSON.parse(mcTestStorage.getItem('ojaby_mc3_match_positions_v1')||'{}')}catch{return {}}})();
   const overrideMap=overrides&&typeof overrides==='object'?overrides:{};
   const blocked=new Set(activePenalties().filter(p=>p.team==='own').map(p=>p.player).filter(Boolean));
-  const available=names.filter(n=>!current.players.includes(n)&&!blocked.has(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));
+  const available=mcAvailableForSwap();
   const assigned=n=>state.lines.some((line,i)=>i!==3&&Array.isArray(line)&&line[pos]===n);
   const roleMatch=(role)=>role===wanted||(pos===0||pos===1)&&(role==='Back');
   const recommendations=available.map(n=>{
@@ -1169,8 +1185,8 @@ function quickRender(){
   const makeOption=(select,value,label)=>{const opt=document.createElement('option');opt.value=value;opt.textContent=label;select.append(opt)};
   makeOption(out,'','Spelare UT');makeOption(inside,'','Spelare IN');
   state.active.players.forEach(n=>makeOption(out,n,n));
-  (window.mcV3Rank?window.mcV3Rank(oldOut,names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie)),state.active):names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie))).forEach(n=>makeOption(inside,n,n));
-  out.onchange=()=>{const prev=inside.value;inside.replaceChildren();makeOption(inside,'','Spelare IN');const list=names.filter(n=>!state.active.players.includes(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));(window.mcV3Rank?window.mcV3Rank(out.value,list,state.active):list).forEach(n=>makeOption(inside,n,n));if(list.includes(prev))inside.value=prev;};
+  (window.mcV3Rank?window.mcV3Rank(oldOut,mcAvailableForSwap(),state.active):mcAvailableForSwap()).forEach(n=>makeOption(inside,n,n));
+  out.onchange=()=>{const prev=inside.value;inside.replaceChildren();makeOption(inside,'','Spelare IN');const list=mcAvailableForSwap();(window.mcV3Rank?window.mcV3Rank(out.value,list,state.active):list).forEach(n=>makeOption(inside,n,n));if(list.includes(prev))inside.value=prev;};
   if([...out.options].some(o=>o.value===oldOut))out.value=oldOut;
   if([...inside.options].some(o=>o.value===oldIn))inside.value=oldIn;
   const go=document.createElement('button');go.type='button';go.textContent='Genomför byte';
