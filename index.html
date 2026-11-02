@@ -4047,4 +4047,79 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+
+<style id="mc-integration-tests-css">
+#mcIntegration{border:1px solid #3d7790;border-radius:12px;padding:12px;background:#10243a;margin:14px 0}
+#mcIntegration .mcit-row{padding:7px;border-bottom:1px solid #2d465e;font-size:13px}
+#mcIntegration .mcit-pass{color:#93e8b9}#mcIntegration .mcit-fail{color:#ffb3aa}
+body.mc-testcenter-open #mcBackQuick{display:none!important}
+</style>
+<script id="mc-integration-tests-v1">
+(function(){
+'use strict';
+const statsSource="const gameSegments=s=>{let seg=(s.shifts||[]).map(x=>({...x}));if(s.active)seg.push({...s.active,duration:Math.max(0,(s.seconds||0)-s.active.start)});return seg.filter(x=>Array.isArray(x.players)&&x.players.length&&x.duration>0).map(x=>({period:String(x.period),start:Number(x.start)||0,end:(Number(x.start)||0)+(Number(x.duration)||0),duration:Number(x.duration)||0,players:[...new Set(x.players.filter(Boolean))]})).sort((a,b)=>Number(a.period)-Number(b.period)||a.start-b.start);};\nconst currentSegments=()=>gameSegments(state);\nfunction getStats(s,n){let time=0,shifts=0,g=0,a=0,pm=0;const segments=gameSegments(s);for(let i=0;i<segments.length;i++){const x=segments[i];if(x.players.includes(n)){time+=x.duration;const prev=i>0?segments[i-1]:null;const continuation=prev&&prev.players.includes(n)&&prev.period===x.period&&Math.abs(prev.end-x.start)<0.01;if(!continuation)shifts++}}for(const e of s.events||[]){if(e.type==='Mål framåt'&&!e.penaltyShotShootout&&e.scorer===n)g++;if(e.type==='Mål framåt'&&!e.penaltyShotShootout&&e.assist===n)a++;if(e.mode==='5v5'&&!e.penaltyShot&&(e.players||[]).includes(n)){if(e.type==='Mål framåt')pm++;if(e.type==='Mål bakåt')pm--}}return {time,shifts,g,a,pm,pen:(s.penalties||[]).filter(x=>x.team==='own'&&x.player===n).reduce((sum,x)=>sum+(Number(x.minutes)||0),0)}}\n";
+function init(){
+ const tc=document.getElementById('mcTestCenter');if(!tc||document.getElementById('mcIntegration'))return;
+ const p=document.createElement('section');p.id='mcIntegration';
+ p.innerHTML='<h3>📊 Statistik- och dataintegritetstest</h3><p class="help">Använder samma statistikfunktioner som ordinarie Matchcoach, men med en separat testmatch i minnet. Inga riktiga matchdata skrivs eller arkiveras.</p><button type="button" id="mcItRun">▶ Testa statistik och matchdata</button><div id="mcItSummary" class="help">Redo</div><div id="mcItResults" style="max-height:360px;overflow:auto"></div><p class="help">Shotmap-kontrollen här granskar syntetiska koordinater och händelsekopplingar, inte Shotmap Pro:s gränssnitt eller riktiga sparfunktion. Säsongsarkivering testas som serialisering i minnet, inte som skrivning till appens arkiv.</p>';
+ tc.append(p);
+ const $=id=>document.getElementById(id);
+ const back=document.getElementById('mcBackQuick');
+ function visibility(){
+  document.body.classList.toggle('mc-testcenter-open',!tc.hidden);
+  if(back&&!tc.hidden)back.hidden=true;
+ }
+ const observer=new MutationObserver(visibility);observer.observe(tc,{attributes:true,attributeFilter:['hidden']});visibility();
+ function run(){
+  const root=$('mcItResults');root.replaceChildren();let pass=0,fail=0;
+  function check(label,actual,expected){const ok=JSON.stringify(actual)===JSON.stringify(expected);ok?pass++:fail++;const row=document.createElement('div');row.className='mcit-row '+(ok?'mcit-pass':'mcit-fail');row.textContent=(ok?'✓ ':'✕ ')+label+(ok?'':' · förväntat '+JSON.stringify(expected)+'; fick '+JSON.stringify(actual));root.append(row)}
+  const players=['A','B','C','D','E'],second=['F','G','H','I','J'];
+  const match={period:3,seconds:900,shifts:[
+   {period:1,start:0,end:120,duration:120,players},
+   {period:1,start:120,end:180,duration:60,players},
+   {period:1,start:180,end:360,duration:180,players:second},
+   {period:2,start:0,end:240,duration:240,players},
+   {period:3,start:0,end:300,duration:300,players}
+  ],active:null,events:[
+   {period:1,time:60,type:'Mål framåt',scorer:'A',assist:'B',mode:'5v5',players},
+   {period:1,time:150,type:'Mål bakåt',mode:'5v5',players},
+   {period:1,time:240,type:'Mål framåt',scorer:'F',assist:'G',mode:'PP',players:second},
+   {period:2,time:120,type:'Mål framåt',scorer:'A',assist:'C',mode:'5v5',players},
+   {period:3,time:240,type:'Mål framåt',scorer:'A',assist:'B',mode:'5v5',players,penaltyShotShootout:true},
+   {period:3,time:250,type:'Skott på mål',shooter:'A',mode:'5v5',players,shotX:.38,shotY:.2},
+   {period:3,time:280,type:'Skott i täck',shooter:'B',mode:'5v5',players,shotX:.6,shotY:.4}
+  ],penalties:[{period:1,time:190,team:'own',player:'F',minutes:2}]};
+  let api;
+  try{api=new Function('state',statsSource+';return {gameSegments,getStats,snapshot}')(match)}
+  catch(e){check('Statistikmotorn kan laddas',e.message,'OK');$('mcItSummary').textContent='Fel vid laddning';return}
+  const a=api.getStats(match,'A'),b=api.getStats(match,'B'),f=api.getStats(match,'F');
+  check('Speltid A i sekunder',a.time,720);
+  check('A:s sammanhängande byten',a.shifts,3);
+  check('Mål A exklusive straffläggning',a.g,2);
+  check('Assist B exklusive straffläggning',b.a,1);
+  check('Assist C',api.getStats(match,'C').a,1);
+  check('Plus/minus A',a.pm,1);
+  check('PP-mål påverkar inte plus/minus F',f.pm,0);
+  check('Utvisningsminuter F',f.pen,2);
+  check('Speltid F',f.time,180);
+  check('Ingen negativ speltid',api.gameSegments(match).every(x=>x.duration>=0),true);
+  check('Alla segment inom period',api.gameSegments(match).every(x=>x.start>=0&&x.end<=900),true);
+  const shots=match.events.filter(x=>Number.isFinite(x.shotX)&&Number.isFinite(x.shotY));
+  check('Skottkoordinater giltiga',shots.every(x=>x.shotX>=0&&x.shotX<=1&&x.shotY>=0&&x.shotY<=1),true);
+  check('Skott har skytt',shots.every(x=>!!x.shooter),true);
+  check('Skott kopplade till period',shots.every(x=>[1,2,3].includes(Number(x.period))),true);
+  const before=JSON.stringify(match),archived=JSON.parse(JSON.stringify(api.snapshot()));
+  check('Minneskopia behåller matchhändelser',archived.events.length,match.events.length);
+  check('Minneskopia behåller byten',archived.shifts.length,match.shifts.length);
+  archived.events[0].scorer='Z';
+  check('Arkivkopia är oberoende av testmatchen',match.events[0].scorer,'A');
+  check('Testmatch oförändrad efter kopiering',JSON.stringify(match),before);
+  $('mcItSummary').textContent=pass+' godkända · '+fail+' fel · '+match.events.length+' matchhändelser · '+match.shifts.length+' speltidssegment';
+  $('mcItSummary').className=fail?'mcit-fail':'mcit-pass';
+ }
+ $('mcItRun').addEventListener('click',run);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 </body></html>
