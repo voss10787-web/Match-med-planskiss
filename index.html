@@ -3831,32 +3831,47 @@ function init(){
  function generateMatch(seed){
   const rand=rngFromSeed(seed),range=(a,b)=>a+Math.floor(rand()*(b-a+1));
   const own=['Rasse','Jonte','Algot','William','Alfons','Vidar','Emil','Sigge','Wisnu','Logarn'];
-  const out=[[0,'start','Femma 1 startar']],used=[];
+  const out=[[0,'start','Femma 1 startar']];
   const add=(t,type,desc,x,y)=>{if(t>0&&t<2700)out.push([t,type,desc,x,y])};
-  let currentLine=1;
-  for(let period=0;period<3;period++){
-   const base=period*900;
-   if(period)add(base,'period','Period '+(period+1));
-   for(let t=base+range(65,110);t<base+875;t+=range(65,155)){
-    currentLine=currentLine%3+1;add(t,'swap','Femma '+currentLine+' in');
+  const pick=()=>own[range(0,own.length-1)];
+  let line=1;
+  for(let p=0;p<3;p++){
+   const base=p*900;if(p)add(base,'period','Period '+(p+1));
+   for(let t=base+range(40,80);t<base+860;t+=range(50,100)){line=line%3+1;add(t,'swap','Femma '+line+' in')}
+   for(let i=0,n=range(18,28);i<n;i++){
+    const t=base+range(12,875),ours=rand()<.54,kind=range(0,3),player=pick();
+    const description=ours?(kind===0?'Skott på mål '+player:kind===1?'Skott utanför '+player:kind===2?'Skott i täck '+player:'Skott '+player):(kind===0?'Motståndarskott på mål':kind===1?'Motståndarskott utanför':'Motståndarskott i täck');
+    add(t,ours?'shot':'shotOpp',description,.1+rand()*.8,ours?.08+rand()*.36:.56+rand()*.36);
    }
-   for(let i=0,n=range(5,11);i<n;i++){
-    const t=base+range(20,860),ours=rand()<.54;
-    add(t,ours?'shot':'shotOpp',ours?'Skott '+own[range(0,own.length-1)]:'Motståndarskott',.12+rand()*.76,ours?.08+rand()*.36:.56+rand()*.36);
+   for(let i=0,n=range(2,5);i<n;i++){
+    const t=base+range(35,850),ours=rand()<.54,scorer=pick(),assist=pick();
+    add(t,ours?'goalOwn':'goalOpp',ours?'Mål '+scorer+' · assist '+assist:'Motståndarmål',.16+rand()*.68,ours?.08+rand()*.32:.6+rand()*.32);
    }
-   for(let i=0,n=range(0,3);i<n;i++){
-    const t=base+range(35,820),ours=rand()<.54;
-    add(t,ours?'goalOwn':'goalOpp',ours?'Mål '+own[range(0,own.length-1)]:'Motståndarmål',.16+rand()*.68,ours?.08+rand()*.32:.60+rand()*.32);
-   }
-   if(rand()<.82){
-    const t=base+range(120,620),ours=rand()<.5;
-    add(t,ours?'penOwn':'penOpp',ours?'Utvisning Öjaby 2 min':'Utvisning motståndare 2 min');
-    add(t+1,ours?'bp':'pp',ours?'BP1 in':'PP1 in');
-    add(t+120,'penEnd','Utvisningen slut');
-   }
+   for(let i=0,n=range(9,16);i<n;i++){const t=base+range(10,875);add(t,'faceoff',rand()<.53?'Vunnen tekning '+pick():'Förlorad tekning '+pick())}
   }
-  if(rand()<.8){add(2410,'empty','Öjaby tar ut målvakten – 6 mot 5');if(rand()<.45)add(2550,'goalOwn','Mål i 6 mot 5',.35,.12);add(2640,'swap','Målvakten tillbaka')}
-  const priority={period:0,penOwn:1,penOpp:1,penEnd:1,swap:2,bp:3,pp:3,shot:4,shotOpp:4,goalOwn:5,goalOpp:5};
+  // At least one BP and one PP in every full match, plus optional extra penalties.
+  const penalties=[
+   {time:range(110,520),own:true},
+   {time:900+range(100,520),own:false}
+  ];
+  if(rand()<.85)penalties.push({time:1800+range(100,510),own:rand()<.5});
+  if(rand()<.5)penalties.push({time:1800+range(570,690),own:rand()<.5});
+  for(const p of penalties){
+   const t=p.time,team=p.own?'Öjaby':'motståndare';
+   add(t,p.own?'penOwn':'penOpp','Utvisning '+team+' 2 min');
+   add(t+1,p.own?'bp':'pp',p.own?'BP1 in':'PP1 in');
+   if(rand()<.4){
+    const goalTime=t+range(25,95);
+    add(goalTime,p.own?'goalOpp':'goalOwn',p.own?'Mål motståndare i PP':'Mål '+pick()+' i PP',.2+rand()*.6,p.own?.7:.2);
+    add(goalTime+1,'penEnd','Utvisningen kvittad vid PP-mål');
+   }else add(t+120,'penEnd','Utvisningen slut efter 2 minuter');
+  }
+  if(rand()<.8){
+   add(2410,'empty','Öjaby tar ut målvakten – 6 mot 5');
+   if(rand()<.5)add(2550,'goalOwn','Mål '+pick()+' i 6 mot 5',.35,.12);
+   add(2640,'swap','Målvakten tillbaka');
+  }
+  const priority={period:0,penEnd:1,penOwn:2,penOpp:2,bp:3,pp:3,swap:4,faceoff:5,shot:6,shotOpp:6,goalOwn:7,goalOpp:7};
   out.sort((a,b)=>a[0]-b[0]||(priority[a[1]]??9)-(priority[b[1]]??9));
   out.push([2700,'end','Matchen slut']);
   return out;
