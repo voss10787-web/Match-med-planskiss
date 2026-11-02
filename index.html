@@ -376,6 +376,18 @@ const mcTestStorage={
 <script>
 function mcAttendanceCount(sessions,entry){const total=Object.keys(sessions).length;return {total,absent:entry.absent+Math.max(0,total-entry.present-entry.absent-entry.excused),percent:total?Math.round(100*entry.present/total):null}}
 function mcHasMatchData(s){return !!((s.events||[]).length||(s.shifts||[]).length||s.active||Number(s.seconds)>0||(s.internalStatEvents||[]).length||(s.penalties||[]).length)}
+function mcLineupCoverage(s,r){
+ const field=(Array.isArray(r)?r:[]).filter(p=>p&&p.active&&!p.goalie),names=new Set(field.map(p=>p.name));
+ const counts=new Map(field.map(p=>[p.name,[]])),invalid=[];
+ const lines=Array.isArray(s.lines)?s.lines.slice(0,3):[];
+ lines.forEach((line,i)=>(Array.isArray(line)?line:[]).filter(Boolean).forEach(name=>{if(counts.has(name))counts.get(name).push(i+1);else invalid.push({name,line:i+1})}));
+ const missing=field.filter(p=>counts.get(p.name).length===0).map(p=>p.name);
+ const duplicates=field.filter(p=>counts.get(p.name).length>1).map(p=>({name:p.name,lines:counts.get(p.name)}));
+ const assigned=field.length-missing.length;
+ const complete=lines.some(line=>Array.isArray(line)&&line.length===5&&new Set(line).size===5&&line.every(n=>names.has(n)));
+ return {total:field.length,assigned,missing,duplicates,invalid,complete,ok:field.length>0&&!missing.length&&!duplicates.length&&!invalid.length};
+}
+
 function mcValidGoal(type,scorer,assist){return type!=='Mål framåt'||!scorer||scorer!==assist}
 let mcSvgSequence=0;
 function mcUniqueSvg(markup){
@@ -3632,6 +3644,18 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #mc34Prep label input{width:18px;height:18px;flex:none}
 #mc34Prep ul{margin:8px 0;padding-left:20px;font-size:13px}
 #mc34DataStatus{font-size:11px;opacity:.9;margin-top:4px}
+
+#mc34PrepChecks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+#mc34Prep .mc-prep-check{display:flex;align-items:center;gap:8px;min-width:0;width:100%;min-height:64px;text-align:left;background:#213b53;border:1px solid #71859b;padding:10px;color:#eef5ff}
+#mc34Prep .mc-prep-check>span:nth-child(2){flex:1;min-width:0}#mc34Prep .mc-prep-check strong,#mc34Prep .mc-prep-check small{display:block;overflow-wrap:anywhere}
+#mc34Prep .mc-prep-check strong{font-size:13px}#mc34Prep .mc-prep-check small{font-size:12px;color:#bfd0e0;margin-top:4px;font-weight:400}
+#mc34Prep .mc-prep-check.is-ready{border-color:#428e70}#mc34Prep .mc-prep-check.needs-action{border-color:#c89f50}
+#mc34Prep .mc-prep-check:focus-visible{outline:3px solid #79baff;outline-offset:2px}
+.mc-prep-badge{font-size:12px;color:#ffd082}.mc-prep-badge.is-ready{color:#8fe3b2}
+.mc-lineup-notice{padding:12px;margin:10px 0;border-radius:9px;border:1px solid #be9448;background:#3b3322;color:#ffe0a4;overflow-wrap:anywhere}
+.mc-lineup-notice.is-ready{border-color:#428e70;background:#183e32;color:#b5efcc}.mc-lineup-notice p{margin:7px 0;font-size:13px}.mc-lineup-notice small{display:block;margin-top:7px;color:inherit;font-size:12px}
+.mc-prep-destination{outline:2px solid #6dafff;outline-offset:3px}#mcPrepMatchFields{margin-top:12px}#mcPrepMatchFields label{flex:1;min-width:130px}#mcPrepMatchFields input{width:100%;box-sizing:border-box}
+@media(max-width:340px){#mc34PrepChecks{grid-template-columns:1fr}}
 </style>
 <script id="mc34-stability">
 (function(){'use strict';
@@ -3669,11 +3693,58 @@ function setup(){
  // Prep belongs to match view and stays below standard match controls rather than the clock.
  match.insertBefore(prep,match.firstChild);
  const checks=$('mc34PrepChecks'),warnings=$('mc34PrepSummary');
- function inspectMatch(){const s=safeParse(PREFIX+'ojaby_matchcoach_trupp_v1',{}),r=safeParse(PREFIX+'ojaby_matchcoach_roster_v1',[]),active=Array.isArray(r)?r.filter(p=>p&&p.active):[];const field=active.filter(p=>!p.goalie),gk=active.filter(p=>p.goalie),lines=Array.isArray(s.lines)?s.lines:[];const notes=[];
- if(!field.length)notes.push('Inga uttagna utespelare');if(!gk.length)notes.push('Ingen uttagen målvakt');if(!s.goalkeeper)notes.push('Ingen startmålvakt vald');if(!lines.some(l=>Array.isArray(l)&&l.filter(Boolean).length===5))notes.push('Ingen komplett femma');
- lines.forEach((l,i)=>{if(!Array.isArray(l))return;const filtered=l.filter(Boolean);if(new Set(filtered).size!==filtered.length)notes.push('Dubbel spelare i femma '+(i+1))});
- const items=[['Trupp uttagen',field.length>0],['Målvakt vald',!!s.goalkeeper],['Minst en komplett femma',lines.some(l=>Array.isArray(l)&&l.filter(Boolean).length===5)],['Matchdatum',!!s.date],['Motståndare',!!s.opponent]];
- checks.innerHTML=items.map(([name,ok])=>`<label><input type="checkbox" ${ok?'checked':''} disabled> ${esc(name)}</label>`).join('');warnings.textContent=notes.length?'Kontrollera: '+notes.join(' · '):'Grundkontrollen är godkänd. Kontrollera även PP/BP manuellt.';return notes.length===0}
+ const prepLabel=document.createElement('span');prepLabel.id='mc34PrepBadge';prepLabel.className='mc-prep-badge';prep.querySelector('summary').append(prepLabel);
+ const lineupNotice=document.createElement('div');lineupNotice.id='mcLineupCoverage';lineupNotice.setAttribute('role','status');lineupNotice.setAttribute('aria-live','polite');$('linesPanel').insertBefore(lineupNotice,$('lines'));
+ // Reuse the original editable match fields and their existing save handlers.
+ const fields=document.createElement('div');fields.id='mcPrepMatchFields';fields.className='row';
+ for(const id of ['date','opponent']){const label=$(id)?.closest('label');if(label)fields.append(label)}
+ const schedule=$('matchSchedule');if(schedule)schedule.after(fields);else $('matchSquadPanel').prepend(fields);
+ let highlightTimer;
+ function goToPreparation(targetId){
+  $('mcMatchTab')?.click();const target=$(targetId);if(!target)return;
+  for(let node=target;node;node=node.parentElement){if(node.tagName==='DETAILS')node.open=true;if(node.classList?.contains('mc-folded'))node.querySelector(':scope > h2 .mc-fold-button')?.click();}
+  const destination=target.closest('section')||target;
+  document.querySelectorAll('.mc-prep-destination').forEach(n=>n.classList.remove('mc-prep-destination'));
+  destination.classList.add('mc-prep-destination');clearTimeout(highlightTimer);highlightTimer=setTimeout(()=>destination.classList.remove('mc-prep-destination'),2200);
+  requestAnimationFrame(()=>{
+   const height=$('clockPanel')?.getBoundingClientRect().height||140;
+   destination.style.scrollMarginTop=(height+16)+'px';destination.scrollIntoView({behavior:'smooth',block:'start'});
+   const control=target.matches('input,select,button')?target:target.querySelector('input:not([type="hidden"]),select,button');
+   if(control&&!control.disabled)control.focus({preventScroll:true});
+  });
+ }
+ function inspectMatch(){
+  const s=state,r=roster,active=r.filter(p=>p&&p.active),field=active.filter(p=>!p.goalie),gk=active.filter(p=>p.goalie),coverage=mcLineupCoverage(s,r),notes=[];
+  const keeperValid=gk.some(p=>p.name===s.goalkeeper);
+  if(!field.length)notes.push('Inga uttagna utespelare');
+  if(!gk.length)notes.push('Ingen uttagen målvakt');
+  if(!keeperValid)notes.push(s.goalkeeper?'Vald målvakt är inte uttagen som målvakt':'Ingen startmålvakt vald');
+  if(!coverage.complete)notes.push('Ingen komplett ordinarie femma');
+  if(!s.date)notes.push('Matchdatum saknas');if(!String(s.opponent||'').trim())notes.push('Motståndare saknas');
+  if(coverage.missing.length)notes.push('Saknar femma: '+coverage.missing.join(', '));
+  if(coverage.duplicates.length)notes.push('Flera platser: '+coverage.duplicates.map(p=>p.name+' (femma '+p.lines.join(', ')+')').join(' · '));
+  if(coverage.invalid.length)notes.push('Ej uttagna utespelare i femmorna: '+[...new Set(coverage.invalid.map(p=>p.name))].join(', '));
+  const items=[
+   ['Trupp uttagen',field.length>0,field.length+' utespelare · '+gk.length+' målvakter','matchSquadPlayers'],
+   ['Målvakt vald',keeperValid,keeperValid?s.goalkeeper:'Välj målvakt för matchen','keeperSelect'],
+   ['Minst en komplett femma',coverage.complete,'Ordinarie femma 1–3','lines'],
+   ['Alla utespelare i varsin femma',coverage.ok,coverage.assigned+' av '+coverage.total+' placerade · ordinarie femma 1–3','lines'],
+   ['Matchdatum',!!s.date,s.date||'Ange datum','date'],
+   ['Motståndare',!!String(s.opponent||'').trim(),s.opponent||'Ange motståndare','opponent']
+  ];
+  checks.innerHTML=items.map(([name,ok,detail,target])=>`<button type="button" class="mc-prep-check ${ok?'is-ready':'needs-action'}" data-prep-target="${target}"><span aria-hidden="true">${ok?'✓':'⚠'}</span><span><strong>${esc(name)}</strong><small>${esc(detail)}</small></span><span aria-hidden="true">›</span></button>`).join('');
+  warnings.textContent=notes.length?'Kontrollera: '+notes.join(' · '):'Grundkontrollen är godkänd. Kontrollera även PP/BP manuellt.';
+  prepLabel.textContent=notes.length?' · ⚠ '+notes.length+' att kontrollera':' · ✓ Klar';prepLabel.classList.toggle('is-ready',!notes.length);
+  const message=coverage.ok?'✓ Alla '+coverage.total+' uttagna utespelare ligger i varsin ordinarie femma.':'⚠ '+coverage.assigned+' av '+coverage.total+' uttagna utespelare placerade i ordinarie femma 1–3.';
+  lineupNotice.className=coverage.ok?'mc-lineup-notice is-ready':'mc-lineup-notice needs-action';
+  lineupNotice.innerHTML='<strong>'+esc(message)+'</strong>'+(coverage.missing.length?'<p>Saknar femma: '+esc(coverage.missing.join(', '))+'</p>':'')+(coverage.duplicates.length?'<p>Flera platser: '+esc(coverage.duplicates.map(p=>p.name+' (femma '+p.lines.join(', ')+')').join(' · '))+'</p>':'')+(coverage.invalid.length?'<p>Byt ut ej uttagna utespelare: '+esc([...new Set(coverage.invalid.map(p=>p.name))].join(', '))+'</p>':'')+'<small>Målvakter räknas separat. PP, BP och Extra/special påverkar inte denna kontroll.</small>';
+  if(!field.length)lineupNotice.innerHTML='<strong>⚠ Ingen matchtrupp med utespelare är uttagen.</strong>';
+  return notes.length===0;
+ }
+ checks.addEventListener('click',e=>{const button=e.target.closest('[data-prep-target]');if(button)goToPreparation(button.dataset.prepTarget)});
+ $('linesPanel').addEventListener('change',()=>queueMicrotask(inspectMatch));
+ fields.addEventListener('change',()=>queueMicrotask(inspectMatch));
+ const previousRender=render;render=function(){const result=previousRender.apply(this,arguments);inspectMatch();return result};
  $('mc34PrepRefresh').onclick=inspectMatch;
  $('mc34PrepAck').onclick=()=>{try{localStorage.setItem(PREPKEY,JSON.stringify({date:new Date().toISOString(),opponent:safeParse(PREFIX+'ojaby_matchcoach_trupp_v1',{}).opponent}));warnings.textContent+=' · Genomgång markerad.'}catch{warnings.textContent+=' · Kunde inte spara markeringen.'}};
  inspectMatch();
