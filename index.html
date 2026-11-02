@@ -3776,8 +3776,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #mcTestCenter .mc-tc-log{max-height:230px;overflow:auto;background:#0b1c2f;border-radius:9px;padding:8px}
 #mcTestCenter .mc-tc-log p{padding:7px;margin:0;border-bottom:1px solid #2c455d;font-size:13px}
 #mcTestCenter .mc-tc-ok{color:#78e5a7}#mcTestCenter .mc-tc-bad{color:#ffb4a7}
-#mcTestCenter .mc-tc-court{height:145px;border:2px solid #8cc8bb;border-radius:12px;background:linear-gradient(90deg,#183d3c,#14504b);position:relative;margin:10px auto;max-width:300px}
-#mcTestCenter .mc-tc-court:before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid #b2d9d3}
+#mcTestCenter .mc-tc-court{aspect-ratio:2/1;height:auto;border:2px solid #8cc8bb;border-radius:20px;background:#e8f1e9;position:relative;margin:10px auto;max-width:620px;overflow:hidden}
+#mcTestCenter .mc-tc-court:before{display:none}#mcTestCenter .mc-tc-rink{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #mcTestCenter .mc-tc-dot{position:absolute;background:#f7dc77;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%)}
 #mcTestCenter .mc-tc-progress{height:7px;border-radius:8px;background:#354c63;overflow:hidden}
 #mcTestCenter .mc-tc-progress span{display:block;height:100%;background:#4bd3a2;width:0}
@@ -3795,7 +3795,7 @@ function init(){
  panel.innerHTML='<div class="mc-tc-top"><div><h2 style="margin:0">🧪 Matchcoach Testcenter</h2><p class="help">Separat, fiktiv match. Ändrar aldrig riktiga matcher, trupp, närvaro eller säsongsstatistik.</p></div><button id="mcTcClose" class="secondary" type="button">Stäng</button></div>'+
  '<div class="mc-tc-controls"><label>Scenario <select id="mcTcScenario"><option value="full">Full match</option><option value="stress">Stresstest</option><option value="special">PP / BP / 6 mot 5</option></select></label><label>Hastighet <select id="mcTcSpeed"><option value="1">1×</option><option value="5" selected>5×</option><option value="20">20×</option><option value="50">50×</option></select></label></div>'+
  '<div class="mc-tc-board"><div><div class="help">ÖJABY – MOTSTÅNDARE</div><div id="mcTcScore" class="mc-tc-score">0 – 0</div><div id="mcTcMode" class="help">5 mot 5</div></div><div style="text-align:right"><div id="mcTcPeriod">Period 1</div><div id="mcTcClock" class="mc-tc-score">00:00</div><div id="mcTcStatus" class="help">Redo</div></div></div>'+
- '<div class="mc-tc-progress"><span id="mcTcProgress"></span></div><div id="mcTcCourt" class="mc-tc-court" aria-label="Fiktiv skottkarta"></div>'+
+ '<div class="mc-tc-progress"><span id="mcTcProgress"></span></div><div id="mcTcCourt" class="mc-tc-court" aria-label="Innebandyplan med mål, mittlinje, tekningpunkter och skottmarkeringar"></div>'+
  '<div class="mc-tc-controls"><button id="mcTcPlay" type="button">▶ Starta</button><button id="mcTcNext" class="secondary" type="button">Nästa händelse</button><button id="mcTcReset" class="secondary" type="button">↻ Nollställ</button></div>'+
  '<p id="mcTcLine" class="help">Aktuell femma: –</p><h3>Händelser</h3><div id="mcTcLog" class="mc-tc-log" aria-live="polite"></div><h3>Automatiska kontroller</h3><div id="mcTcChecks" class="help">Starta simuleringen för att visa kontroller.</div>'+
  '<p class="help">Version 1: visuell, isolerad scenario- och regelkontroll. Den anropar ännu inte alla ordinarie matchknappar, Shotmap Pro eller säsongsarkiveringen. Resultatet är därför inte ett fullständigt integrationstest.</p>';
@@ -3818,7 +3818,7 @@ function init(){
  $('mcTcLine').textContent='Aktuell femma: '+state.line;
  $('mcTcStatus').textContent=index>=events.length?'Färdig':'Händelse '+index+' av '+events.length;
  $('mcTcProgress').style.width=(index/events.length*100)+'%';
- const court=$('mcTcCourt');court.replaceChildren();
+ const court=$('mcTcCourt');court.replaceChildren();court.insertAdjacentHTML('afterbegin',"<svg class=\"mc-tc-rink\" viewBox=\"0 0 400 200\" preserveAspectRatio=\"none\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"3\" y=\"3\" width=\"394\" height=\"194\" rx=\"24\" fill=\"#e8f1e9\" stroke=\"#425c60\" stroke-width=\"4\"/><path d=\"M200 4V196\" stroke=\"#d95059\" stroke-width=\"2.5\"/><path d=\"M102 4V196 M298 4V196\" stroke=\"#4782b6\" stroke-width=\"2.5\"/><circle cx=\"200\" cy=\"100\" r=\"25\" fill=\"none\" stroke=\"#d95059\" stroke-width=\"2\"/><circle cx=\"200\" cy=\"100\" r=\"2.5\" fill=\"#d95059\"/><g fill=\"none\" stroke=\"#d95059\" stroke-width=\"2\"><circle cx=\"64\" cy=\"54\" r=\"22\"/><circle cx=\"64\" cy=\"146\" r=\"22\"/><circle cx=\"336\" cy=\"54\" r=\"22\"/><circle cx=\"336\" cy=\"146\" r=\"22\"/></g><g fill=\"#d95059\"><circle cx=\"64\" cy=\"54\" r=\"2.5\"/><circle cx=\"64\" cy=\"146\" r=\"2.5\"/><circle cx=\"336\" cy=\"54\" r=\"2.5\"/><circle cx=\"336\" cy=\"146\" r=\"2.5\"/></g><path d=\"M30 76V124 M370 76V124\" stroke=\"#d95059\" stroke-width=\"2\"/><path d=\"M30 88H40V112H30 M370 88H360V112H370\" fill=\"#b9d7e6\" stroke=\"#3776a6\" stroke-width=\"2\"/><path d=\"M18 91H30V109H18 M382 91H370V109H382\" fill=\"none\" stroke=\"#4c6475\" stroke-width=\"2\"/></svg>");
  shots.forEach(p=>{const dot=document.createElement('span');dot.className='mc-tc-dot';dot.style.left=(p[0]*100)+'%';dot.style.top=(p[1]*100)+'%';dot.style.background=p[2]?'#fca5a5':'#f7dc77';court.append(dot)});
  const pass=checks.filter(x=>x.ok).length;
  $('mcTcChecks').textContent=checks.length?pass+' / '+checks.length+' kontroller godkända'+(pass<checks.length?' · FEL UPPTÄCKT':''):'Inga kontroller ännu';
