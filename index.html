@@ -374,6 +374,43 @@ const mcTestStorage={
 };
 </script>
 <script>
+function mcAttendanceCount(sessions,entry){const total=Object.keys(sessions).length;return {total,absent:entry.absent+Math.max(0,total-entry.present-entry.absent-entry.excused),percent:total?Math.round(100*entry.present/total):null}}
+function mcHasMatchData(s){return !!((s.events||[]).length||(s.shifts||[]).length||s.active||Number(s.seconds)>0||(s.internalStatEvents||[]).length||(s.penalties||[]).length)}
+function mcValidGoal(type,scorer,assist){return type!=='Mål framåt'||!scorer||scorer!==assist}
+let mcSvgSequence=0;
+function mcUniqueSvg(markup){
+ const suffix='-mcsvg-'+(++mcSvgSequence),ids=new Map();
+ markup=markup.replace(/\bid="([^"]+)"/g,(_,id)=>{ids.set(id,id+suffix);return 'id="'+id+suffix+'"'});
+ return markup.replace(/url\(#([^)]+)\)/g,(_,id)=>'url(#'+(ids.get(id)||id)+')');
+}
+function mcValidateRoster(value){
+ if(!Array.isArray(value)||value.length>200||value.some(p=>!p||typeof p.name!=='string'||!p.name.trim()||p.name.length>200))throw Error('Ogiltig spelartrupp');
+ if(new Set(value.map(p=>p.name.trim().toLocaleLowerCase('sv'))).size!==value.length)throw Error('Spelartruppen innehåller dubbla namn');
+ return value;
+}
+function mcValidateMatch(input){
+ const fail=message=>{throw new Error('Ogiltig matchfil: '+message)};
+ const object=x=>x&&typeof x==='object'&&!Array.isArray(x);
+ const finite=x=>typeof x==='number'&&Number.isFinite(x);
+ const time=x=>finite(x)&&x>=0&&x<=900;
+ const period=x=>['1','2','3'].includes(String(x));
+ const players=x=>Array.isArray(x)&&x.length<=30&&x.every(n=>typeof n==='string');
+ if(!object(input))fail('matchobjekt saknas');
+ if(!Array.isArray(input.lines)||input.lines.length!==8||input.lines.some(a=>!players(a)||a.length>5))fail('åtta giltiga uppställningar krävs');
+ if(!period(input.period)||!time(input.seconds??0))fail('period eller matchtid');
+ if(!Array.isArray(input.events)||input.events.length>20000)fail('händelselista');
+ for(const e of input.events){
+  if(!object(e)||!period(e.period)||!time(e.time)||typeof e.type!=='string'||!players(e.players))fail('händelse eller spelarlista');
+  if(!mcValidGoal(e.type,e.scorer,e.assist))fail('målskytt och assist är samma spelare');
+  if(e.shotmap&&(!object(e.shotmap)||!finite(e.shotmap.x)||!finite(e.shotmap.y)||e.shotmap.x<0||e.shotmap.x>1||e.shotmap.y<0||e.shotmap.y>1))fail('skottposition');
+ }
+ if(!Array.isArray(input.shifts)||input.shifts.some(x=>!object(x)||!period(x.period)||!time(x.start)||!finite(x.duration)||x.duration<0||x.start+x.duration>900.01||!players(x.players)))fail('speltidssegment');
+ if(input.active&&(!object(input.active)||!period(input.active.period)||!time(input.active.start)||!players(input.active.players)))fail('aktiv femma');
+ if(!Array.isArray(input.penalties??[])||(input.penalties??[]).some(x=>!object(x)||!period(x.period)||!time(x.time)||!finite(x.minutes)||x.minutes<=0||x.minutes>120))fail('utvisning');
+ for(const key of ['goalieChanges','internalStatEvents'])if(input[key]!==undefined&&!Array.isArray(input[key]))fail(key);
+ return structuredClone(input);
+}
+
 const initialRoster=[{"name": "Algot Karlsson", "goalie": false, "active": true}, {"name": "Edvin Sten", "goalie": false, "active": true}, {"name": "Edvin Logarn", "goalie": false, "active": true}, {"name": "Jack Holmquist", "goalie": true, "active": true}, {"name": "Malte Lidström", "goalie": false, "active": true}, {"name": "Noah Blixt", "goalie": false, "active": true}, {"name": "Sixten Jepson", "goalie": false, "active": true}, {"name": "William Voss", "goalie": false, "active": true}, {"name": "Arvid Petersson", "goalie": false, "active": true}, {"name": "Malte Flykt", "goalie": false, "active": true}, {"name": "Oscar Stenberg", "goalie": false, "active": true}, {"name": "Alfons Liljegren", "goalie": false, "active": true}, {"name": "Arvid Melin", "goalie": false, "active": true}, {"name": "Emil Ekroth", "goalie": false, "active": true}, {"name": "Emilio Lagerkvist", "goalie": false, "active": true}, {"name": "Jonathan Svensson", "goalie": false, "active": true}, {"name": "Leonardo Larsson", "goalie": false, "active": true}, {"name": "Rasmus Edvardsson", "goalie": false, "active": true}, {"name": "Vidar Petersson", "goalie": false, "active": true}, {"name": "William Jonsson", "goalie": true, "active": true}, {"name": "Wisnu Sjögren", "goalie": false, "active": true}];const rosterKey='ojaby_matchcoach_roster_v1';let roster;try{roster=JSON.parse(mcTestStorage.getItem(rosterKey)||'null')||structuredClone(initialRoster)}catch{roster=structuredClone(initialRoster)}for(const p of roster){if(p.name==='Jack Holmquist'||p.name==='William Jonsson'||p.name==='Malte Flykt')p.goalie=true;}if(!roster.some(p=>p.name.toLocaleLowerCase('sv')==='malte flykt'))roster.push({name:'Malte Flykt',goalie:true,active:true});mcTestStorage.setItem(rosterKey,JSON.stringify(roster));let names=roster.filter(p=>p.active&&!p.goalie).map(p=>p.name);const KEY='ojaby_matchcoach_trupp_v1';const defaults={lines:[['','','','',''],['','','','',''],['','','','',''],['','','','',''],['','','','',''],['','','','','']],events:[],shifts:[],active:null,seconds:0,running:false,period:'1',opponent:'',date:new Date().toISOString().slice(0,10),mode:'5v5',penalties:[],matchKind:'series'};let state;try{state={...structuredClone(defaults),...JSON.parse(mcTestStorage.getItem(KEY)||'{}')}}catch{state=structuredClone(defaults)}// Validate essential saved-match collections before the UI uses them.
 if(!Array.isArray(state.lines)||!Array.isArray(state.events)||!Array.isArray(state.shifts)||!Array.isArray(state.penalties)||!state.lines.every(line=>Array.isArray(line))){
  state=structuredClone(defaults);
@@ -599,6 +636,7 @@ function mcReturnExpiredPlayers(now=matchTime()){
   const old=state.active;
   state.shifts.push({...old,end:second,duration:Math.max(0,second-old.start)});
   state.active={...old,players:[...old.players,p.player],start:second};
+  p.mcReturnAt=at;
   if(Array.isArray(old.positionPlayers)){
    const slots=[...old.positionPlayers];const free=slots.findIndex(x=>!x);
    if(free>=0)slots[free]=p.player;
@@ -638,7 +676,7 @@ function endMinorOnGoal(type,at,ask=false){
  p.endedAt=at;p.endedByGoal=true;
  return p;
 }
-function record(){const type=$('eventType').value;if(type==='Mål framåt'||type==='Mål bakåt'){if(state.running){tick();state.running=false;clearInterval(timer);timer=null;}}const at=matchTime();const mode=penaltyMode(at);const ev={period:state.period,time:elapsed(),type,players:state.active?.players||[],mode,scorer:$('scorer').value,assist:$('assist').value,goalie:state.goalkeeper||''};if(type==='Mål framåt'||type==='Mål bakåt'){const before=(state.penalties||[]).map(p=>({endedAt:p.endedAt,endedByGoal:p.endedByGoal}));const couldEnd=canEndMinorOnGoal(type,at);const ended=endMinorOnGoal(type,at,true);if(couldEnd&&!ended)ev.penaltyKeep=true;if(ended){ev.penaltyEnded=true;ev._penaltyBefore=before;}}else if(type==='Powerplay start')state.mode='PP';else if(type==='Powerplay slut')state.mode='5v5';else if(type==='Boxplay start')state.mode='BP';else if(type==='Boxplay slut')state.mode='5v5';state.events.push(ev);mcReturnExpiredPlayers();save();render()}
+function record(){const type=$('eventType').value;if(!mcValidGoal(type,$('scorer').value,$('assist').value))return alert('Målskytt och assist får inte vara samma spelare.');if(type==='Mål framåt'||type==='Mål bakåt'){if(state.running){tick();state.running=false;clearInterval(timer);timer=null;}}const at=matchTime();const mode=penaltyMode(at);const ev={period:state.period,time:elapsed(),type,players:state.active?.players||[],mode,scorer:$('scorer').value,assist:$('assist').value,goalie:state.goalkeeper||''};if(type==='Mål framåt'||type==='Mål bakåt'){const before=(state.penalties||[]).map(p=>({endedAt:p.endedAt,endedByGoal:p.endedByGoal}));const couldEnd=canEndMinorOnGoal(type,at);const ended=endMinorOnGoal(type,at,true);if(couldEnd&&!ended)ev.penaltyKeep=true;if(ended){ev.penaltyEnded=true;ev._penaltyBefore=before;}}else if(type==='Powerplay start')state.mode='PP';else if(type==='Powerplay slut')state.mode='5v5';else if(type==='Boxplay start')state.mode='BP';else if(type==='Boxplay slut')state.mode='5v5';state.events.push(ev);mcReturnExpiredPlayers();save();render()}
 function statFor(name){let time=0,shifts=0,plus=0,goals=0,assists=0;let previous=null;for(const sh of [...state.shifts,...(state.active?[{...state.active,duration:Math.max(0,elapsed()-state.active.start)}]:[])].filter(sh=>Array.isArray(sh.players)&&Number(sh.duration)>0).sort((a,b)=>Number(a.period)-Number(b.period)||Number(a.start)-Number(b.start))){if(sh.players.includes(name)){time+=Number(sh.duration);const continuous=previous&&String(previous.period)===String(sh.period)&&previous.players.includes(name)&&Math.abs(Number(previous.end??(Number(previous.start)+Number(previous.duration||0)))-Number(sh.start))<0.01;if(!continuous)shifts++;}previous=sh;}for(const e of state.events){if(e.type==='Mål framåt'&&!e.penaltyShotShootout&&e.scorer===name)goals++;if(e.type==='Mål framåt'&&!e.penaltyShotShootout&&e.assist===name)assists++;if(e.mode==='5v5'&&!e.penaltyShot&&!e.penaltyShotShootout&&e.players.includes(name)){if(e.type==='Mål framåt')plus++;if(e.type==='Mål bakåt')plus--}}return {time,shifts,plus,goals,assists,shotsOn:state.events.filter(e=>e.type==='Skott på mål'&&e.scorer===name).length,shotsOff:state.events.filter(e=>e.type==='Skott utanför'&&e.scorer===name).length,blocks:state.events.filter(e=>e.type==='Täckt skott'&&e.scorer===name).length,penMinutes:(state.penalties||[]).filter(p=>p.team==='own'&&p.player===name).reduce((a,p)=>a+p.minutes,0),faceoffsWon:state.events.filter(e=>e.type==='Vunnen tekning'&&e.scorer===name).length,faceoffsLost:state.events.filter(e=>e.type==='Förlorad tekning'&&e.scorer===name).length}}
 
 function renderLiveView(){
@@ -735,7 +773,18 @@ function download(name,text,type){let a=document.createElement('a'),url=URL.crea
   state.active={line:sh.line,players:[...sh.players],start:sh.start,period:sh.period};
  }
  save();render();
-};$('addEvent').onclick=record;$('swapButton').onclick=swapPlayer;$('period').onchange=e=>{const wanted=e.target.value;if(state.active){alert('Tryck Alla UT innan du byter period.');render();return;}if(state.running){alert('Pausa matchklockan innan du byter period.');render();return;}state.period=wanted;state.seconds=0;state.running=false;clearInterval(timer);timer=null;save();render()};$('opponent').onchange=e=>{state.opponent=e.target.value;save()};$('date').onchange=e=>{state.date=e.target.value;save()};$('csv').onclick=()=>{const head=['Spelare','Speltid sekunder','Byten','Mål','Assist','Plus/minus','Utvisningsminuter','Vunna tekningar','Förlorade tekningar','Tekningsprocent'];const lines=[head,...names.map(n=>{const s=statFor(n);return[n,Math.round(s.time),s.shifts,s.goals,s.assists,s.plus,s.penMinutes,s.faceoffsWon,s.faceoffsLost,s.faceoffsWon+s.faceoffsLost?Math.round(100*s.faceoffsWon/(s.faceoffsWon+s.faceoffsLost)):'' ]})];download('ojaby_statistik.csv','\ufeff'+lines.map(r=>r.join(';')).join('\r\n'),'text/csv;charset=utf-8')};$('json').onclick=()=>download('ojaby_match.json',JSON.stringify(state,null,2),'application/json');$('load').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!Array.isArray(obj.lines)||!Array.isArray(obj.events))throw Error();if(!Array.isArray(obj.shifts)||!Array.isArray(obj.penalties||[])||!Array.isArray(obj.lines)||!['1','2','3'].includes(String(obj.period)))throw Error('Felaktig matchfil');state={...structuredClone(defaults),...obj,running:false};save();render()}catch{alert('Kunde inte läsa matchfilen.')}};$('warnThreshold').onchange=renderStats;$('warnEnabled').onchange=renderStats;$('clear').onclick=()=>{if(!confirm('Rensa hela matchen? Exportera gärna JSON först.'))return;clearInterval(timer);state=structuredClone(defaults);save();render()};$('quickNormal').onclick=()=>{if(state.matchKind==='internal')return;const root=$('quickLineButtons');root.scrollIntoView({behavior:'smooth',block:'center'});root.classList.add('mc-pick-normal');setTimeout(()=>root.classList.remove('mc-pick-normal'),1800);};
+};$('addEvent').onclick=record;$('swapButton').onclick=swapPlayer;$('period').onchange=e=>{const wanted=e.target.value;if(state.active){alert('Tryck Alla UT innan du byter period.');render();return;}if(state.running){alert('Pausa matchklockan innan du byter period.');render();return;}state.period=wanted;state.seconds=0;state.running=false;clearInterval(timer);timer=null;save();render()};$('opponent').onchange=e=>{state.opponent=e.target.value;save()};$('date').onchange=e=>{state.date=e.target.value;save()};$('csv').onclick=()=>{const head=['Spelare','Speltid sekunder','Byten','Mål','Assist','Plus/minus','Utvisningsminuter','Vunna tekningar','Förlorade tekningar','Tekningsprocent'];const lines=[head,...names.map(n=>{const s=statFor(n);return[n,Math.round(s.time),s.shifts,s.goals,s.assists,s.plus,s.penMinutes,s.faceoffsWon,s.faceoffsLost,s.faceoffsWon+s.faceoffsLost?Math.round(100*s.faceoffsWon/(s.faceoffsWon+s.faceoffsLost)):'' ]})];download('ojaby_statistik.csv','\ufeff'+lines.map(r=>r.join(';')).join('\r\n'),'text/csv;charset=utf-8')};$('json').onclick=()=>download('ojaby_match.json',JSON.stringify(state,null,2),'application/json');$('load').onchange=async e=>{
+ const f=e.target.files?.[0];if(!f)return;
+ const previous=state;let stored;
+ try{
+  stored=mcTestStorage.getItem(KEY);
+  const imported=mcValidateMatch(JSON.parse(await f.text()));
+  const next={...structuredClone(defaults),...imported,running:false};
+  state=next;
+  try{save();render()}catch(error){state=previous;try{if(stored===null)mcTestStorage.removeItem(KEY);else mcTestStorage.setItem(KEY,stored)}catch{}try{render()}catch{}throw error}
+  clearInterval(timer);timer=null;
+ }catch(error){alert('Kunde inte läsa matchfilen: '+error.message)}finally{e.target.value=''}
+};$('warnThreshold').onchange=renderStats;$('warnEnabled').onchange=renderStats;$('clear').onclick=()=>{if(!confirm('Rensa hela matchen? Exportera gärna JSON först.'))return;clearInterval(timer);state=structuredClone(defaults);save();render()};$('quickNormal').onclick=()=>{if(state.matchKind==='internal')return;const root=$('quickLineButtons');root.scrollIntoView({behavior:'smooth',block:'center'});root.classList.add('mc-pick-normal');setTimeout(()=>root.classList.remove('mc-pick-normal'),1800);};
 for(let id of ['scorer','assist'])$(id).innerHTML='<option value="">– välj –</option>'+names.map(n=>`<option>${n}</option>`).join('');render();</script><script>
 (function(){
 const games=[
@@ -811,7 +860,7 @@ const matchKindSelect=el('matchKind');
 matchKindSelect.value=state.matchKind==='internal'?'internal':'series';
 matchKindSelect.onchange=()=>{
   const next=matchKindSelect.value;
-  const hasData=(state.events||[]).length||(state.shifts||[]).length||state.active||state.seconds>0;
+  const hasData=mcHasMatchData(state);
   if(hasData&&!confirm('Byta matchtyp för den pågående matchen?\n\nInternmatcher sparas inte i säsongsstatistiken.')){
     matchKindSelect.value=state.matchKind==='internal'?'internal':'series';return;
   }
@@ -819,7 +868,7 @@ matchKindSelect.onchange=()=>{
 };
 el('finishMatch').onclick=()=>{
   if(state.running){tick();state.running=false;clearInterval(timer)}
-  const hasData=(state.events||[]).length||(state.shifts||[]).length||state.active||state.seconds>0;
+  const hasData=mcHasMatchData(state);
   if(!hasData){alert('Det finns ingen påbörjad match att avsluta.');return}
   if(state.matchKind==='internal'){
     if(!confirm('Avsluta internmatchen?\n\nMatchens händelser och klocka nollställs utan att något sparas i säsongsstatistiken. Femmor och spelartrupp behålls.')){save();render();return}
@@ -992,13 +1041,15 @@ function onFloor(){return [...(state.active?.players||[])];}
 function feedback(s){$q('quickFeedback').textContent=s;}
 function hidePicker(){pending=null;$q('quickPicker').hidden=true;$q('quickLineOnly').hidden=false;}
 function add(type,player='',assist=''){
+ if(!mcValidGoal(type,player,assist))return alert('Målskytt och assist får inte vara samma spelare.');
  if(type==='Mål framåt'||type==='Mål bakåt')stopForStoppage();
  const at=matchTime(),mode=penaltyMode(at);
  const ev={period:state.period,time:elapsed(),type,players:onFloor(),line:state.active?.line??null,mode,scorer:player,assist:assist,goalie:state.goalkeeper||'',quick:true};
  if(type==='Mål framåt'||type==='Mål bakåt'){
    // Preserve previous penalty state to make undo safe.
    const before=(state.penalties||[]).map(p=>({endedAt:p.endedAt,endedByGoal:p.endedByGoal}));
-   const ended=endMinorOnGoal(type,at,true);
+   const couldEnd=canEndMinorOnGoal(type,at);const ended=endMinorOnGoal(type,at,true);
+   if(couldEnd&&!ended)ev.penaltyKeep=true;
    if(ended){ev.penaltyEnded=true;ev._penaltyBefore=before;}
  }
  state.events.push(ev);mcReturnExpiredPlayers();save();hidePicker();render();
@@ -1224,7 +1275,24 @@ function playersForSelect(){for(const id of editors){const sel=el(id),before=sel
 function updateEditor(){const i=Number(el('editEventSelect').value),e=state.events[i];el('eventEditor').hidden=!e;if(!e)return;playersForSelect();el('editType').value=types.includes(e.type)?e.type:'Spelarbyte';el('editPeriod').value=e.period;el('editTime').value=fmt(e.time);el('editScorer').value=e.scorer||'';el('editAssist').value=e.assist||'';}
 el('editEventSelect').onchange=updateEditor;
 function restorePenaltyGoal(e){if(!e._penaltyBefore)return;(state.penalties||[]).forEach((p,i)=>{const b=e._penaltyBefore[i];if(!b)return;if(b.endedAt===undefined)delete p.endedAt;else p.endedAt=b.endedAt;if(b.endedByGoal===undefined)delete p.endedByGoal;else p.endedByGoal=b.endedByGoal})}
-function rebuildPenaltyEffects(){for(const p of state.penalties||[]){if(p.endedByGoal){delete p.endedByGoal;delete p.endedAt}}const goals=state.events.filter(e=>!e.penaltyShot&&['Mål framåt','Mål bakåt'].includes(e.type)).sort((a,b)=>matchTime(a.period,a.time)-matchTime(b.period,b.time));for(const g of goals){const at=matchTime(g.period,g.time);g.mode=penaltyMode(at);const ended=g.penaltyKeep?null:endMinorOnGoal(g.type,at);g.penaltyEnded=!!ended;delete g._penaltyBefore;}}
+function rebuildPenaltyEffects(){const returned=(state.penalties||[]).filter(p=>p.mcReturned&&p.player).map(p=>({p,at:p.mcReturnAt??penaltyEnd(p)}));for(const p of state.penalties||[]){if(p.endedByGoal){delete p.endedByGoal;delete p.endedAt}}const goals=state.events.filter(e=>!e.penaltyShot&&['Mål framåt','Mål bakåt'].includes(e.type)).sort((a,b)=>matchTime(a.period,a.time)-matchTime(b.period,b.time));for(const g of goals){const at=matchTime(g.period,g.time);g.mode=penaltyMode(at);const ended=g.penaltyKeep?null:endMinorOnGoal(g.type,at);g.penaltyEnded=!!ended;delete g._penaltyBefore;}
+ const now=matchTime();
+ for(const {p,at} of returned){
+  const end=penaltyEnd(p);if(end<=at)continue;
+  const correct=segment=>{
+   const start=matchTime(segment.period,segment.start),finish=start+(segment.duration??Math.max(0,elapsed()-segment.start));
+   if(start>=at-0.001&&start<end&&finish>=at){
+    segment.players=segment.players.filter(n=>n!==p.player);
+    if(segment.positionPlayers)segment.positionPlayers=segment.positionPlayers.map(n=>n===p.player?'':n);
+   }
+  };
+  state.shifts.forEach(correct);if(state.active)correct(state.active);
+  delete p.mcReturned;delete p.mcReturnAt;
+ }
+ mcReturnExpiredPlayers(now);state.mode=penaltyMode(now);
+ // An edited historical goal can invalidate a later replacement too. Require a new BP unit.
+ if(state.active&&penaltyMode(now)==='BP'&&(state.active.players.length>mcBPRequired()||state.active.players.some(n=>mcExcludedBP().has(n)))){closeActive();if(state.running){state.running=false;clearInterval(timer);timer=null;}}
+}
 window.mcRebuildPenaltyEffects=rebuildPenaltyEffects;
 // Attribute an edited conceded goal to the goalkeeper on court at its historical time.
 // Sort a copy: the stored change history may not be in chronological order.
@@ -1261,7 +1329,7 @@ function smExerciseSketch(title){
  const circle=d=>`<g><circle cx="${d[0]}" cy="${d[1]}" r="9" fill="${d[2]==='F'?'#c94b51':d[2]==='M'?'#e6b94a':'#23865d'}" stroke="white" stroke-width="1.6"/><text x="${d[0]}" y="${d[1]+3.2}" text-anchor="middle" font-size="9" font-weight="bold" fill="white">${d[2]}</text></g>`;
  const route=warm?'<path d="M28 90 L85 90 L125 60 M28 148 L85 148 L125 175"/>':recover?'':defend?'<path d="M52 104 L82 75 L110 104"/>':game?'<path d="M35 80 L70 100 L110 145"/>':'<path d="M36 138 L70 100 L105 68"/>';
  const shoot=finish||defend?'<path d="M105 68 L82 28" stroke="#d45a43" stroke-width="2.5" stroke-dasharray="4 3" marker-end="url(#smArrowShot)"/>':'';
- return `<div class="sm-sketch-wrap"><svg class="sm-exercise-sketch" viewBox="0 0 170 205" role="img" aria-label="Schematisk övningsskiss: ${smCell(title)}"><defs><marker id="smArrowRun" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#225c9b"/></marker><marker id="smArrowShot" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#d45a43"/></marker></defs><rect x="6" y="6" width="158" height="193" rx="22" fill="#eaf4f8" stroke="#3879a3" stroke-width="2"/><path d="M6 102.5 H164 M6 45 H164 M6 160 H164" stroke="#79b2ce" stroke-width="1.3"/><circle cx="85" cy="102.5" r="19" fill="none" stroke="#b14c55" stroke-width="1.5"/><rect x="65" y="6" width="40" height="9" rx="2" fill="#c94b51"/><rect x="65" y="190" width="40" height="9" rx="2" fill="#c94b51"/><g fill="none" stroke="#225c9b" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#smArrowRun)">${route}</g>${shoot}${dots.map(circle).join('')}</svg><div class="sm-sketch-legend">🟢 Anfall &nbsp; 🔴 Försvar &nbsp; <span style="color:#225c9b">- - -</span> Rörelse/passning<br/><span style="color:#d45a43">- - -</span> Avslut mot mål · Schematisk placering</div></div>`;
+ return mcUniqueSvg(`<div class="sm-sketch-wrap"><svg class="sm-exercise-sketch" viewBox="0 0 170 205" role="img" aria-label="Schematisk övningsskiss: ${smCell(title)}"><defs><marker id="smArrowRun" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#225c9b"/></marker><marker id="smArrowShot" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#d45a43"/></marker></defs><rect x="6" y="6" width="158" height="193" rx="22" fill="#eaf4f8" stroke="#3879a3" stroke-width="2"/><path d="M6 102.5 H164 M6 45 H164 M6 160 H164" stroke="#79b2ce" stroke-width="1.3"/><circle cx="85" cy="102.5" r="19" fill="none" stroke="#b14c55" stroke-width="1.5"/><rect x="65" y="6" width="40" height="9" rx="2" fill="#c94b51"/><rect x="65" y="190" width="40" height="9" rx="2" fill="#c94b51"/><g fill="none" stroke="#225c9b" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#smArrowRun)">${route}</g>${shoot}${dots.map(circle).join('')}</svg><div class="sm-sketch-legend">🟢 Anfall &nbsp; 🔴 Försvar &nbsp; <span style="color:#225c9b">- - -</span> Rörelse/passning<br/><span style="color:#d45a43">- - -</span> Avslut mot mål · Schematisk placering</div></div>`);
 }
 // LAB v10: observationsbaserad coachchecklista, utan att hitta på matchhändelser.
 function smCoachChecklist(own,opp,coverage){
@@ -1325,7 +1393,7 @@ function smDrillSketch(d){
  const a=smDrillDiagrams[d.id];if(!a)return '';
  const marker=(pts,color,prefix)=>pts.map((p,i)=>`<g><circle cx="${p[0]}" cy="${p[1]}" r="9" fill="${color}" stroke="white" stroke-width="1.5"/><text x="${p[0]}" y="${p[1]+3}" text-anchor="middle" font-size="9" font-weight="bold" fill="white">${prefix}${i+1}</text></g>`).join('');
  const paths=a.paths.map(p=>`<path d="${p}" fill="none" stroke="#2365a0" stroke-width="2.5" stroke-dasharray="5 4" marker-end="url(#smv13pass)"/>`).join('');
- return `<div class="sm-v13-diagram"><svg viewBox="0 0 160 205" role="img" aria-label="Planskiss för ${smCell(d.title)}: gröna anfallare, röda försvarare, blå passningsvägar och orange avslut"><defs><marker id="smv13pass" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#2365a0"/></marker><marker id="smv13shot" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#e07c24"/></marker></defs><rect x="5" y="5" width="150" height="195" rx="17" fill="#e7f3f9" stroke="#467fa0" stroke-width="2"/><path d="M5 102 H155 M5 45 H155 M5 160 H155" stroke="#87b7d1" stroke-width="1.2"/><rect x="59" y="189" width="42" height="9" rx="2" fill="#cf4b52"/>${a.zone?'<rect x="49" y="112" width="62" height="55" rx="14" fill="#f3c665" opacity=".22" stroke="#b07b22" stroke-dasharray="4 3"/>':''}${paths}${a.shot?`<path d="${a.shot}" fill="none" stroke="#e07c24" stroke-width="2.5" stroke-dasharray="3 3" marker-end="url(#smv13shot)"/>`:''}${marker(a.attack,'#218755','A')}${marker(a.defense,'#c74d56','F')}</svg><div class="help">🟢 Anfall · 🔴 Försvar · Blått = passning/rörelse · Orange = skott. Schematisk övningsbild.</div></div>`;
+ return mcUniqueSvg(`<div class="sm-v13-diagram"><svg viewBox="0 0 160 205" role="img" aria-label="Planskiss för ${smCell(d.title)}: gröna anfallare, röda försvarare, blå passningsvägar och orange avslut"><defs><marker id="smv13pass" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#2365a0"/></marker><marker id="smv13shot" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#e07c24"/></marker></defs><rect x="5" y="5" width="150" height="195" rx="17" fill="#e7f3f9" stroke="#467fa0" stroke-width="2"/><path d="M5 102 H155 M5 45 H155 M5 160 H155" stroke="#87b7d1" stroke-width="1.2"/><rect x="59" y="189" width="42" height="9" rx="2" fill="#cf4b52"/>${a.zone?'<rect x="49" y="112" width="62" height="55" rx="14" fill="#f3c665" opacity=".22" stroke="#b07b22" stroke-dasharray="4 3"/>':''}${paths}${a.shot?`<path d="${a.shot}" fill="none" stroke="#e07c24" stroke-width="2.5" stroke-dasharray="3 3" marker-end="url(#smv13shot)"/>`:''}${marker(a.attack,'#218755','A')}${marker(a.defense,'#c74d56','F')}</svg><div class="help">🟢 Anfall · 🔴 Försvar · Blått = passning/rörelse · Orange = skott. Schematisk övningsbild.</div></div>`);
 }
 window.smDrillSketch=smDrillSketch;
 function smDrillCard(d,players,goalies){const suitable=smDrillSuitable(d,players,goalies);return `<details class="sm-v10-topic"><summary>${smCell(d.title)} · ${d.minutes} min ${suitable?'':'⚠ Anpassa bemanning'}</summary><p><strong>Spelare:</strong> ${smCell(d.players)}</p><p><strong>Material:</strong> ${smCell(d.equipment)}</p>${smDrillSketch(d)}<p><strong>Organisation:</strong> ${smCell(d.setup)}</p><p><strong>Genomförande:</strong> ${smCell(d.steps)}</p><p><strong>Ledarfokus:</strong> ${smCell(d.coach)}</p><p><strong>Mät:</strong> ${smCell(d.measure)}</p>${suitable?'':'<p class="help">Färre spelare eller målvakter än grundupplägget kräver. Använd småmål, färre anfallare eller välj en annan övning.</p>'}</details>`}
@@ -1358,7 +1426,7 @@ el('fullBackup').onclick=()=>{const payload={format:'ojaby-complete-backup-v1',c
 function validTrainingBackup(value){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.entries(value).every(([date,s])=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date+'T12:00:00'))&&s&&typeof s==='object'&&!Array.isArray(s)&&s.players&&typeof s.players==='object'&&!Array.isArray(s.players)&&Object.entries(s.players).every(([name,status])=>name.trim().length>0&&['present','absent','excused'].includes(status)))}
 function validBackupEvents(events){return Array.isArray(events)&&events.every(x=>x&&typeof x==='object'&&['1','2','3'].includes(String(x.period))&&Number.isFinite(Number(x.time))&&Number(x.time)>=0&&Number(x.time)<=900)}
 function validSeasonBackup(season){return Array.isArray(season)&&season.every(x=>x&&typeof x==='object'&&x.data&&typeof x.data==='object'&&validBackupEvents(x.data.events)&&Array.isArray(x.data.lines)&&x.data.lines.length===8&&(!x.data.shifts||Array.isArray(x.data.shifts))&&(!x.data.penalties||Array.isArray(x.data.penalties)))}
-el('fullRestore').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(obj.format!=='ojaby-complete-backup-v1'||!obj.match||typeof obj.match!=='object'||!Array.isArray(obj.match.events)||!Array.isArray(obj.match.lines)||obj.match.lines.length!==8||!Array.isArray(obj.roster)||!Array.isArray(obj.season)||!validBackupEvents(obj.match.events)||!validSeasonBackup(obj.season)||!Array.isArray(obj.templates===undefined?[]:obj.templates))throw Error('Ogiltig säkerhetskopia');if(!confirm('Ersätta aktuell match, trupp och säsongsarkiv med säkerhetskopian?'))return;const writes=[[KEY,JSON.stringify({...structuredClone(defaults),...obj.match,running:false})],[rosterKey,JSON.stringify(obj.roster)],['ojaby_matchcoach_season_v4',JSON.stringify(obj.season)]];if(obj.training!==undefined){if(!validTrainingBackup(obj.training))throw Error('Ogiltig träningsnärvaro i säkerhetskopian');writes.push(['ojaby_matchcoach_training_v1',JSON.stringify(obj.training)])};if(obj.templates!==undefined)writes.push(['ojaby_matchcoach_templates_v1',JSON.stringify(obj.templates)]);const before=writes.map(([k])=>[k,mcTestStorage.getItem(k)]);try{for(const [k,v] of writes){mcTestStorage.setItem(k,v);if(mcTestStorage.getItem(k)!==v)throw Error('Lagringen kunde inte verifieras för '+k)}}catch(writeError){let rollbackFailed=false;for(const [k,v] of before){try{if(v===null)mcTestStorage.removeItem(k);else mcTestStorage.setItem(k,v);if(mcTestStorage.getItem(k)!==v)rollbackFailed=true}catch(_){rollbackFailed=true}}throw Error('Lagringsfel vid återställning'+(rollbackFailed?' – återställningen kunde inte rullas tillbaka fullständigt. Använd tidigare export.':' – tidigare data återställd.'))}location.reload()}catch(err){alert('Kunde inte återställa filen: '+err.message)}finally{e.target.value=''}};
+el('fullRestore').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(obj.format!=='ojaby-complete-backup-v1'||!obj.match||typeof obj.match!=='object'||!Array.isArray(obj.match.events)||!Array.isArray(obj.match.lines)||obj.match.lines.length!==8||!Array.isArray(obj.roster)||!Array.isArray(obj.season)||!validBackupEvents(obj.match.events)||!validSeasonBackup(obj.season)||!Array.isArray(obj.templates===undefined?[]:obj.templates))throw Error('Ogiltig säkerhetskopia');mcValidateMatch(obj.match);mcValidateRoster(obj.roster);obj.season.forEach(m=>mcValidateMatch(m.data));if(!confirm('Ersätta aktuell match, trupp och säsongsarkiv med säkerhetskopian?'))return;const writes=[[KEY,JSON.stringify({...structuredClone(defaults),...obj.match,running:false})],[rosterKey,JSON.stringify(obj.roster)],['ojaby_matchcoach_season_v4',JSON.stringify(obj.season)]];if(obj.training!==undefined){if(!validTrainingBackup(obj.training))throw Error('Ogiltig träningsnärvaro i säkerhetskopian');writes.push(['ojaby_matchcoach_training_v1',JSON.stringify(obj.training)])};if(obj.templates!==undefined)writes.push(['ojaby_matchcoach_templates_v1',JSON.stringify(obj.templates)]);const before=writes.map(([k])=>[k,mcTestStorage.getItem(k)]);try{for(const [k,v] of writes){mcTestStorage.setItem(k,v);if(mcTestStorage.getItem(k)!==v)throw Error('Lagringen kunde inte verifieras för '+k)}}catch(writeError){let rollbackFailed=false;for(const [k,v] of before){try{if(v===null)mcTestStorage.removeItem(k);else mcTestStorage.setItem(k,v);if(mcTestStorage.getItem(k)!==v)rollbackFailed=true}catch(_){rollbackFailed=true}}throw Error('Lagringsfel vid återställning'+(rollbackFailed?' – återställningen kunde inte rullas tillbaka fullständigt. Använd tidigare export.':' – tidigare data återställd.'))}location.reload()}catch(err){alert('Kunde inte återställa filen: '+err.message)}finally{e.target.value=''}};
 const prev=render;render=function(){prev();const select=el('editEventSelect'),selected=select.value;select.replaceChildren();state.events.forEach((e,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent='P'+e.period+' '+fmt(e.time)+' · '+e.type+(e.scorer?' · '+e.scorer:'');select.append(o)});if(state.events.length){select.value=selected&&Number(selected)<state.events.length?selected:String(state.events.length-1)}updateEditor();drawShift();drawAnalysis();drawSummary();drawSave()};
 render();const oldTick=tick;tick=function(){oldTick();drawShift();drawSummary()};
 })();
@@ -1463,7 +1531,7 @@ function draw(){const date=dateField.value;if(!date)return;const saved=sessions[
 playersBox.innerHTML=rosterNames().map(n=>'<div class="trainingPlayer"><strong>'+esc(n)+'</strong><select data-player="'+esc(n)+'" aria-label="Närvaro '+esc(n)+'">'+statusOptions(entries[n]||'present')+'</select></div>').join('');
 el('trainingDelete').disabled=!saved;el('trainingFeedback').textContent='';drawStats()}
 function drawStats(){const names=rosterNames();const totals=new Map(names.map(n=>[n,{present:0,absent:0,excused:0}]));const dates=Object.keys(sessions).sort();for(const d of dates){const entries=sessions[d]?.players||{};for(const [n,v] of Object.entries(entries)){if(!totals.has(n))totals.set(n,{present:0,absent:0,excused:0});if(['present','absent','excused'].includes(v))totals.get(n)[v]++}}
-el('trainingStatsBody').innerHTML=[...totals].sort((a,b)=>nameSort(a[0],b[0])).map(([n,t])=>{const count=t.present+t.absent+t.excused;return '<tr><td>'+esc(n)+'</td><td>'+t.present+'</td><td>'+t.absent+'</td><td>'+t.excused+'</td><td>'+(count?Math.round(100*t.present/count)+' %':'–')+'</td></tr>'}).join('');
+el('trainingStatsBody').innerHTML=[...totals].sort((a,b)=>nameSort(a[0],b[0])).map(([n,t])=>{const attendance=mcAttendanceCount(sessions,t),count=attendance.total,absent=attendance.absent;return '<tr><td>'+esc(n)+'</td><td>'+t.present+'</td><td>'+absent+'</td><td>'+t.excused+'</td><td>'+(count?Math.round(100*t.present/count)+' %':'–')+'</td></tr>'}).join('');
 el('trainingSessions').textContent=dates.length+' sparade träningar'+(dates.length?' · Senaste: '+dates.slice(-5).reverse().join(', '):'');}
 function persist(){mcTestStorage.setItem(KEY_TRAIN,JSON.stringify(sessions))}
 function downloadFile(name,data,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([data],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -2809,7 +2877,7 @@ function smExerciseSketch(title){
  const circle=d=>`<g><circle cx="${d[0]}" cy="${d[1]}" r="9" fill="${d[2]==='F'?'#c94b51':d[2]==='M'?'#e6b94a':'#23865d'}" stroke="white" stroke-width="1.6"/><text x="${d[0]}" y="${d[1]+3.2}" text-anchor="middle" font-size="9" font-weight="bold" fill="white">${d[2]}</text></g>`;
  const route=warm?'<path d="M28 90 L85 90 L125 60 M28 148 L85 148 L125 175"/>':recover?'':defend?'<path d="M52 104 L82 75 L110 104"/>':game?'<path d="M35 80 L70 100 L110 145"/>':'<path d="M36 138 L70 100 L105 68"/>';
  const shoot=finish||defend?'<path d="M105 68 L82 28" stroke="#d45a43" stroke-width="2.5" stroke-dasharray="4 3" marker-end="url(#smArrowShot)"/>':'';
- return `<div class="sm-sketch-wrap"><svg class="sm-exercise-sketch" viewBox="0 0 170 205" role="img" aria-label="Schematisk övningsskiss: ${smCell(title)}"><defs><marker id="smArrowRun" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#225c9b"/></marker><marker id="smArrowShot" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#d45a43"/></marker></defs><rect x="6" y="6" width="158" height="193" rx="22" fill="#eaf4f8" stroke="#3879a3" stroke-width="2"/><path d="M6 102.5 H164 M6 45 H164 M6 160 H164" stroke="#79b2ce" stroke-width="1.3"/><circle cx="85" cy="102.5" r="19" fill="none" stroke="#b14c55" stroke-width="1.5"/><rect x="65" y="6" width="40" height="9" rx="2" fill="#c94b51"/><rect x="65" y="190" width="40" height="9" rx="2" fill="#c94b51"/><g fill="none" stroke="#225c9b" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#smArrowRun)">${route}</g>${shoot}${dots.map(circle).join('')}</svg><div class="sm-sketch-legend">🟢 Anfall &nbsp; 🔴 Försvar &nbsp; <span style="color:#225c9b">- - -</span> Rörelse/passning<br/><span style="color:#d45a43">- - -</span> Avslut mot mål · Schematisk placering</div></div>`;
+ return mcUniqueSvg(`<div class="sm-sketch-wrap"><svg class="sm-exercise-sketch" viewBox="0 0 170 205" role="img" aria-label="Schematisk övningsskiss: ${smCell(title)}"><defs><marker id="smArrowRun" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#225c9b"/></marker><marker id="smArrowShot" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#d45a43"/></marker></defs><rect x="6" y="6" width="158" height="193" rx="22" fill="#eaf4f8" stroke="#3879a3" stroke-width="2"/><path d="M6 102.5 H164 M6 45 H164 M6 160 H164" stroke="#79b2ce" stroke-width="1.3"/><circle cx="85" cy="102.5" r="19" fill="none" stroke="#b14c55" stroke-width="1.5"/><rect x="65" y="6" width="40" height="9" rx="2" fill="#c94b51"/><rect x="65" y="190" width="40" height="9" rx="2" fill="#c94b51"/><g fill="none" stroke="#225c9b" stroke-width="2.2" stroke-dasharray="5 3" marker-end="url(#smArrowRun)">${route}</g>${shoot}${dots.map(circle).join('')}</svg><div class="sm-sketch-legend">🟢 Anfall &nbsp; 🔴 Försvar &nbsp; <span style="color:#225c9b">- - -</span> Rörelse/passning<br/><span style="color:#d45a43">- - -</span> Avslut mot mål · Schematisk placering</div></div>`);
 }
 function drawAnalysis(){
  const all=pointsNow(),filtered=smReport(all);
@@ -3524,7 +3592,7 @@ function start(){
  q('mc3ImportPlans').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(obj.format!=='mc-v3-training-plans'||!Array.isArray(obj.plans)||!obj.plans.every(p=>p.id&&p.title&&Array.isArray(p.ids)))throw Error();if(!confirm('Importera '+obj.plans.length+' träningspass?'))return;const m=new Map(plans().map(p=>[p.id,p]));obj.plans.forEach(p=>m.set(p.id,p));if(!write(SKEY,[...m.values()]))throw Error();planList();}catch{alert('Kunde inte importera träningspassen.')}finally{e.target.value=''}};
  planList();
  // Development and post-training follow-up, backed by the existing real season archive
- const dev=document.createElement('section');dev.className='mc-v3-panel';dev.id='mcV3Dev';dev.innerHTML=`<h3>📈 Individuell utveckling och träningsuppföljning</h3><p class="mc-v3-help">Beräknas enbart från sparade riktiga matcher. Demomatcher ingår inte. Resultaten är observationer, inte bevis för träningseffekt.</p><label>Spelare<select id="mc3DevPlayer"></select></label><div id="mc3DevTable" class="mc-v3-data"></div><h4>Följ upp en tränad färdighet</h4><label>Statistikmått<select id="mc3Metric"><option value="shotBlocked">Skott i täck (färre är bättre)</option><option value="shotOff">Skott utanför (färre är bättre)</option><option value="shotOn">Skott på mål (fler är bättre)</option><option value="block">Täckta skott (fler är bättre)</option></select></label><div id="mc3Compare" class="mc-v3-help"></div><div class="mc-v3-actions"><button type="button" id="mc3PrintDev">Skriv ut spelarutveckling</button></div>`;season.append(dev);
+ const dev=document.createElement('section');dev.className='mc-v3-panel';dev.id='mcV3Dev';dev.innerHTML=`<h3>📈 Individuell utveckling och träningsuppföljning</h3><p class="mc-v3-help">Beräknas enbart från sparade riktiga matcher. Demomatcher ingår inte. Resultaten är observationer, inte bevis för träningseffekt.</p><label>Spelare<select id="mc3DevPlayer"></select></label><div id="mc3DevTable" class="mc-v3-data"></div><h4>Följ upp en tränad färdighet</h4><label>Statistikmått<select id="mc3Metric"><option value="shotBlocked">Skott i täck (färre är bättre)</option><option value="shotOff">Skott utanför (färre är bättre)</option><option value="shotOn">Skott på mål (fler är bättre)</option><option value="block">Täckta skott (fler är bättre)</option></select></label><div id="mc3DevelopmentCompare" class="mc-v3-help"></div><div class="mc-v3-actions"><button type="button" id="mc3PrintDev">Skriv ut spelarutveckling</button></div>`;season.append(dev);
  const devSel=q('mc3DevPlayer');devSel.innerHTML='<option value="">Hela laget</option>'+players().map(p=>`<option>${esc(p.name)}</option>`).join('');
  const types={shotBlocked:'Skott i täck',shotOff:'Skott utanför',shotOn:'Skott på mål',block:'Täckta skott'};
  function series(){const a=read(AKEY,[]);return Array.isArray(a)?a.filter(m=>m&&m.data&&Array.isArray(m.data.events)):[];}
@@ -3533,7 +3601,7 @@ function start(){
  function per(m,kind,name){return getEvents(m).filter(e=>evtMatch(e,kind)&&(!name||(e.scorer===name||e.player===name))).length;}
  function renderDev(){const matches=series(),name=devSel.value,k=q('mc3Metric').value,part=matches.slice(-5);
   q('mc3DevTable').innerHTML=matches.length?`<table><thead><tr><th>Match</th><th>På mål</th><th>Utanför</th><th>I täck</th><th>Täckta</th></tr></thead><tbody>${part.map((m,i)=>`<tr><td>${esc(m.data?.opponent||m.opponent||('Match '+(matches.length-part.length+i+1)))}</td>${['shotOn','shotOff','shotBlocked','block'].map(k=>`<td>${per(m,k,name)}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p class="mc-v3-help">Inga sparade seriematcher hittades.</p>';
-  if(matches.length>=2){const mid=Math.max(1,Math.floor(matches.length/2)),a=matches.slice(0,mid),b=matches.slice(mid);const avg=x=>x.reduce((n,m)=>n+per(m,k,name),0)/(x.length||1);q('mc3Compare').textContent=`${types[k]}: tidigare ${avg(a).toFixed(1)} per match → senare ${avg(b).toFixed(1)} per match. Statistik jämför två tidsperioder, men visar inte säkert orsaken.`;}else q('mc3Compare').textContent='Spara minst två riktiga matcher för att jämföra utveckling.';
+  if(matches.length>=2){const mid=Math.max(1,Math.floor(matches.length/2)),a=matches.slice(0,mid),b=matches.slice(mid);const avg=x=>x.reduce((n,m)=>n+per(m,k,name),0)/(x.length||1);q('mc3DevelopmentCompare').textContent=`${types[k]}: tidigare ${avg(a).toFixed(1)} per match → senare ${avg(b).toFixed(1)} per match. Statistik jämför två tidsperioder, men visar inte säkert orsaken.`;}else q('mc3DevelopmentCompare').textContent='Spara minst två riktiga matcher för att jämföra utveckling.';
  }
  devSel.onchange=renderDev;q('mc3Metric').onchange=renderDev;q('mc3PrintDev').onclick=()=>window.print();renderDev();
  return true;
@@ -3576,7 +3644,14 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function dataKeys(){const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k!==STATUSKEY&&(k.startsWith(PREFIX)))keys.push(k)}return keys.sort()}
 function complete(){const data={};dataKeys().forEach(k=>data[k]=localStorage.getItem(k));return {format:'matchcoach-full-v34',version:1,created:new Date().toISOString(),origin:location.origin,values:data}}
 function download(text,filename){const b=new Blob([text],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500)}
-function inspect(payload){if(!payload||payload.format!=='matchcoach-full-v34'||payload.version!==1||!payload.values||typeof payload.values!=='object'||Array.isArray(payload.values))throw Error('Inte en giltig Matchcoach 3.5-backup');const entries=Object.entries(payload.values);if(!entries.length||entries.length>350)throw Error('Orimligt antal dataposter');for(const [k,v] of entries){if(typeof k!=='string'||k.length>180||!k.startsWith(PREFIX)||typeof v!=='string'||v.length>6000000)throw Error('Ogiltig datapost '+k);try{JSON.parse(v)}catch{if(!/prefs|status|mode/i.test(k))throw Error('Felaktig JSON i '+k)}}return entries}
+function inspect(payload){if(!payload||payload.format!=='matchcoach-full-v34'||payload.version!==1||!payload.values||typeof payload.values!=='object'||Array.isArray(payload.values))throw Error('Inte en giltig Matchcoach 3.5-backup');const entries=Object.entries(payload.values);if(!entries.length||entries.length>350)throw Error('Orimligt antal dataposter');for(const [k,v] of entries){if(typeof k!=='string'||k.length>180||!k.startsWith(PREFIX)||typeof v!=='string'||v.length>6000000)throw Error('Ogiltig datapost '+k);try{
+ const data=JSON.parse(v),key=k.slice(PREFIX.length);
+ if(key==='ojaby_matchcoach_trupp_v1')mcValidateMatch(data);
+ if(key==='ojaby_matchcoach_roster_v1')mcValidateRoster(data);
+ if(key==='ojaby_matchcoach_season_v4'){
+  if(!Array.isArray(data))throw Error('Ogiltigt säsongsarkiv');data.forEach(m=>{if(!m||typeof m.id!=='string'||!m.data)throw Error('Ogiltig arkivmatch');mcValidateMatch(m.data)});
+ }
+}catch(error){if(!/prefs|status|mode/i.test(k))throw Error('Felaktig data i '+k+': '+error.message)}}return entries}
 function restore(payload){const entries=inspect(payload),changes=entries.map(([k,v])=>[k,v]);const prior=new Map(changes.map(([k])=>[k,localStorage.getItem(k)]));try{for(const [k,v] of changes){localStorage.setItem(k,v);if(localStorage.getItem(k)!==v)throw Error('Verifiering misslyckades: '+k)}}catch(err){let failed=false;for(const [k,v] of prior){try{if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch{failed=true}}throw Error(err.message+(failed?' Återställningen kunde inte rullas tillbaka helt.':''))}return changes.length}
 function safeParse(k,f){try{return JSON.parse(localStorage.getItem(k)||'null')??f}catch{return f}}
 function playerIds(){// Additive metadata only. Historical events keep original names for compatibility.
@@ -3779,7 +3854,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #mcTestCenter .mc-tc-ok{color:#78e5a7}#mcTestCenter .mc-tc-bad{color:#ffb4a7}
 #mcTestCenter .mc-tc-court{aspect-ratio:360/680;height:auto;border:0;border-radius:10px;background:#e8f3f9;position:relative;margin:10px auto;width:100%;max-width:620px;overflow:hidden}
 #mcTestCenter .mc-tc-court:before{display:none}#mcTestCenter .mc-tc-rink{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-#mcTestCenter .mc-tc-dot{position:absolute;background:#f7dc77;width:16px;height:16px;min-height:0;padding:0;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);touch-action:manipulation}
+#mcTcShotDetails{scroll-margin-top:160px}#mcTcShotDetails .mc-shot-head{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;margin-bottom:12px}#mcTcShotDetails .mc-shot-meta{font-size:13px;color:#bdd0e3}#mcTcShotDetails .mc-shot-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#mcTcShotDetails .mc-shot-grid small{display:block;color:#a9bfd5;margin-bottom:3px}#mcTcShotDetails .mc-shot-grid strong{display:block;overflow-wrap:anywhere}#mcTcShotDetails button[aria-pressed]{font-size:14px;text-align:left}#mcTcShotDetails button[aria-pressed="true"]{background:#176b53;border-color:#64dbac}#mcTestCenter .mc-tc-dot{scroll-margin-top:160px;position:absolute;background:#f7dc77;width:16px;height:16px;min-height:0;padding:0;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);touch-action:manipulation}
 #mcTestCenter .mc-tc-progress{height:7px;border-radius:8px;background:#354c63;overflow:hidden}
 #mcTestCenter .mc-tc-progress span{display:block;height:100%;background:#4bd3a2;width:0}
 </style>
@@ -3807,6 +3882,7 @@ function init(){
   special:[[0,'start','Femma 1'],[90,'penOwn','Utvisning Öjaby'],[91,'bp','BP1'],[140,'shotOpp','Skott i BP',.5,.8],[210,'penEnd','Utvisningen slut'],[300,'penOpp','Utvisning motståndare'],[301,'pp','PP1'],[340,'goalOwn','PP-mål',.5,.12],[341,'penEnd','Utvisning avslutas'],[900,'period','Period 2'],[1800,'period','Period 3'],[2350,'empty','6 mot 5 utan målvakt'],[2600,'goalOwn','Mål 6 mot 5',.6,.12],[2700,'end','Slut']],
   stress:[[0,'start','Femma 1'],[20,'shot','Skott',.2,.2],[40,'swap','Byte'],[60,'shotOpp','Skott',.7,.8],[80,'swap','Byte'],[100,'goalOwn','Mål',.3,.15],[130,'penOwn','Utvisning'],[131,'bp','BP'],[170,'shotOpp','Skott',.7,.8],[220,'goalOpp','Mål bakåt',.6,.8],[221,'penEnd','Kvittning'],[270,'swap','Byte'],[300,'shot','Skott',.4,.1],[900,'period','Period 2'],[940,'penOpp','Utvisning'],[941,'pp','PP'],[980,'goalOwn','PP-mål',.5,.1],[981,'penEnd','Kvittning'],[1800,'period','Period 3'],[1900,'swap','Byte'],[2100,'goalOpp','Mål bakåt',.5,.8],[2500,'empty','6 mot 5'],[2600,'shot','Skott',.6,.1],[2700,'end','Slut']]
  };
+ let selectedShotIndex=-1;
  let index=0,events=scenarios.full,timer=null,shots=[],checks=[],state={own:0,opp:0,mode:'5 mot 5',line:'Femma 1',penalty:null,seconds:0};
  function stop(){if(timer!==null){clearInterval(timer);timer=null}}
  function clock(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
@@ -3819,8 +3895,8 @@ function init(){
  $('mcTcLine').textContent='Aktuell femma: '+state.line;
  $('mcTcStatus').textContent=index>=events.length?'Färdig':'Händelse '+index+' av '+events.length;
  $('mcTcProgress').style.width=(index/events.length*100)+'%';
- const court=$('mcTcCourt');court.replaceChildren();court.insertAdjacentHTML('afterbegin',"<svg class=\"mc-tc-rink\" viewBox=\"0 0 360 680\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"12\" y=\"12\" width=\"336\" height=\"656\" rx=\"33\" ry=\"33\" fill=\"#f4f8f5\" stroke=\"#275e79\" stroke-width=\"4\"/><path d=\"M12 340H348\" stroke=\"#ce4b55\" stroke-width=\"2.5\"/><circle cx=\"180\" cy=\"340\" r=\"4\" fill=\"#ce4b55\"/><rect x=\"138\" y=\"58.74\" width=\"84\" height=\"65.6\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"2\"/><rect x=\"159\" y=\"69.4\" width=\"42\" height=\"16.4\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"1.8\"/><rect x=\"166.56\" y=\"58.74\" width=\"26.88\" height=\"10.66\" rx=\"2\" fill=\"#dbeaf2\" stroke=\"#244f6a\" stroke-width=\"2\"/><circle cx=\"37.2\" cy=\"69.4\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"322.8\" cy=\"69.4\" r=\"3.5\" fill=\"#ce4b55\"/><rect x=\"138\" y=\"555.66\" width=\"84\" height=\"65.6\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"2\"/><rect x=\"159\" y=\"594.2\" width=\"42\" height=\"16.4\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"1.8\"/><rect x=\"166.56\" y=\"610.6\" width=\"26.88\" height=\"10.66\" rx=\"2\" fill=\"#dbeaf2\" stroke=\"#244f6a\" stroke-width=\"2\"/><circle cx=\"37.2\" cy=\"610.6\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"322.8\" cy=\"610.6\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"37.2\" cy=\"340\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"322.8\" cy=\"340\" r=\"3.5\" fill=\"#ce4b55\"/></svg>");
- shots.forEach((p,i)=>{const record=p[3];const dot=document.createElement('button');dot.type='button';dot.className='mc-tc-dot';dot.style.left=(p[0]*100)+'%';dot.style.top=(p[1]*100)+'%';dot.style.background=record.team==='own'?'#59cc92':'#f18d95';if(p[2])dot.style.borderColor='#244f6a';dot.setAttribute('aria-label',record.type+' · '+(record.team==='own'?'Öjaby':'Motståndare')+' · P'+record.period+' '+clock(record.time));dot.dataset.shotIndex=String(i);dot.onclick=()=>showShot(record,dot);court.append(dot)});
+ const court=$('mcTcCourt');if(!court.querySelector('.mc-tc-rink'))court.insertAdjacentHTML('afterbegin',"<svg class=\"mc-tc-rink\" viewBox=\"0 0 360 680\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"12\" y=\"12\" width=\"336\" height=\"656\" rx=\"33\" ry=\"33\" fill=\"#f4f8f5\" stroke=\"#275e79\" stroke-width=\"4\"/><path d=\"M12 340H348\" stroke=\"#ce4b55\" stroke-width=\"2.5\"/><circle cx=\"180\" cy=\"340\" r=\"4\" fill=\"#ce4b55\"/><rect x=\"138\" y=\"58.74\" width=\"84\" height=\"65.6\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"2\"/><rect x=\"159\" y=\"69.4\" width=\"42\" height=\"16.4\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"1.8\"/><rect x=\"166.56\" y=\"58.74\" width=\"26.88\" height=\"10.66\" rx=\"2\" fill=\"#dbeaf2\" stroke=\"#244f6a\" stroke-width=\"2\"/><circle cx=\"37.2\" cy=\"69.4\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"322.8\" cy=\"69.4\" r=\"3.5\" fill=\"#ce4b55\"/><rect x=\"138\" y=\"555.66\" width=\"84\" height=\"65.6\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"2\"/><rect x=\"159\" y=\"594.2\" width=\"42\" height=\"16.4\" fill=\"none\" stroke=\"#ce4b55\" stroke-width=\"1.8\"/><rect x=\"166.56\" y=\"610.6\" width=\"26.88\" height=\"10.66\" rx=\"2\" fill=\"#dbeaf2\" stroke=\"#244f6a\" stroke-width=\"2\"/><circle cx=\"37.2\" cy=\"610.6\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"322.8\" cy=\"610.6\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"37.2\" cy=\"340\" r=\"3.5\" fill=\"#ce4b55\"/><circle cx=\"322.8\" cy=\"340\" r=\"3.5\" fill=\"#ce4b55\"/></svg>");
+ shots.forEach((p,i)=>{const record=p[3];const existing=court.querySelector('[data-shot-index="'+i+'"]');const dot=existing||document.createElement('button');dot.type='button';dot.className='mc-tc-dot';dot.style.left=(p[0]*100)+'%';dot.style.top=(p[1]*100)+'%';dot.style.background=record.team==='own'?'#59cc92':'#f18d95';if(p[2])dot.style.borderColor='#244f6a';dot.setAttribute('aria-label',record.type+' · '+(record.team==='own'?'Öjaby':'Motståndare')+' · P'+record.period+' '+clock(record.time));dot.dataset.shotIndex=String(i);dot.onclick=()=>showShot(record,dot);dot.style.outline=i===selectedShotIndex?'3px solid #e3ae19':'';if(!existing)court.append(dot)});
  renderSimulationAnalysis();
  const pass=checks.filter(x=>x.ok).length;
  $('mcTcChecks').textContent=checks.length?pass+' / '+checks.length+' kontroller godkända'+(pass<checks.length?' · FEL UPPTÄCKT':''):'Inga kontroller ännu';
@@ -3829,10 +3905,18 @@ function init(){
 
  const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function showShot(r,dot){
+  selectedShotIndex=Number(dot.dataset.shotIndex);
   $('mcTcCourt').querySelectorAll('[data-shot-index]').forEach(n=>n.style.outline='');dot.style.outline='3px solid #e3ae19';
   const box=$('mcTcShotDetails');box.hidden=false;
   box.innerHTML='<div class="mc-shot-head"><strong>🎯 '+safe(r.type)+'</strong><span class="mc-shot-meta">'+(r.team==='own'?'Öjaby':'Motståndare')+' · P'+r.period+' · '+clock(r.time)+'</span></div><div class="mc-shot-grid">'+[['Skytt',r.scorer],['Assist',r.assist],...(/täck/.test(r.type)?[['Skottäckare',r.blocker]]:[]),['Spelform',r.mode],['Aktuell femma',r.line]].map(([label,value])=>'<div><small>'+label+'</small><strong>'+safe(value||'Ej registrerat')+'</strong></div>').join('')+'</div><p class="help">Simulerad händelse · matchkod '+safe(lastSeed??'fast scenario')+'</p><button type="button" class="secondary">Stäng</button>';
-  box.querySelector('button').onclick=()=>{box.hidden=true;dot.style.outline=''};
+  box.querySelector('button').onclick=()=>{box.hidden=true;selectedShotIndex=-1;dot.style.outline=''};
+  const bounds=$('mcTcCourt').getBoundingClientRect(),w=bounds.width||349,h=bounds.height||659;
+  const nearby=shots.map((p,i)=>({p,i})).filter(({p})=>Math.hypot((p[0]-r.x)*w,(p[1]-r.y)*h)<=24);
+  if(nearby.length>1){
+   const list=document.createElement('div');const title=document.createElement('p');title.textContent=nearby.length+' avslut nära denna punkt – välj händelse:';list.append(title);
+   nearby.forEach(({p,i})=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.style.cssText='display:block;width:100%;min-height:44px;margin:6px 0';b.textContent='P'+p[3].period+' '+clock(p[3].time)+' · '+(p[3].team==='own'?'Öjaby':'Motståndare')+' · '+p[3].type+' · '+p[3].scorer;b.setAttribute('aria-pressed',String(i===selectedShotIndex));b.onclick=()=>showShot(p[3],$('mcTcCourt').querySelector('[data-shot-index="'+i+'"]'));list.append(b)});box.append(list);
+  }
+  box.scrollIntoView({block:'nearest',behavior:'smooth'});
  }
  function renderSimulationAnalysis(){
   const root=$('mcTcAnalysisBody'),api=window.mcSimulationAnalysis;if(!root)return;
@@ -3860,6 +3944,41 @@ function init(){
  let replaySeed=null,lastSeed=null;
  const randomSeed=()=>{try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]>>>0}catch(e){return (Math.random()*4294967296)>>>0}};
  const rngFromSeed=seed=>{let x=seed>>>0;return ()=>{x=(x+0x6D2B79F5)|0;let t=Math.imul(x^(x>>>15),1|x);t^=t+Math.imul(t^(t>>>7),61|t);return ((t^(t>>>14))>>>0)/4294967296}};
+ function normalizeSimulationEvents(input){
+  const output=[],active=[];let serial=0;
+  const endPenalty=(p,t,goal)=>{active.splice(active.indexOf(p),1);output.push([t,'penEnd',goal?'Utvisningen kvittad vid PP-mål':'Utvisningen slut efter 2 minuter',undefined,undefined,{penaltyId:p.id,team:p.team}])};
+  for(const original of input.filter(e=>e[1]!=='penEnd').slice().sort((a,b)=>a[0]-b[0])){
+   const e=[...original],t=e[0],type=e[1];
+   for(const p of active.slice().sort((a,b)=>a.end-b.end))if(p.end<=t)endPenalty(p,p.end,false);
+   if(type==='penOwn'||type==='penOpp'){
+    const p={id:'sim-pen-'+(++serial),team:type==='penOwn'?'own':'opp',end:t+120};active.push(p);e[5]={...(e[5]||{}),id:p.id};
+   }
+   // Keep an explicit goalkeeper-return event rather than treating it as a player substitution.
+   if(type==='swap'&&e[2]==='Målvakten tillbaka')e[1]='keeperBack';
+   const own=active.filter(p=>p.team==='own').length,opp=active.filter(p=>p.team==='opp').length;
+   const penalized=type==='goalOwn'&&opp>own?'opp':type==='goalOpp'&&own>opp?'own':null;
+   if(type==='bp'&&own<=opp||type==='pp'&&opp<=own)continue;
+   output.push(e);
+   if(penalized){const p=active.find(p=>p.team===penalized);if(p)endPenalty(p,t,true)}
+  }
+  return output;
+ }
+ window.mcNormalizeSimulationEvents=normalizeSimulationEvents;
+ function applySimulationEvent(s,e){
+  const [time,type,description,,,meta={}]=e;s.seconds=time;s.penalties??=[];
+  if(type==='start'||type==='swap')s.line=type==='start'?'Femma 1':description;
+  if(type==='goalOwn')s.own++;if(type==='goalOpp')s.opp++;
+  if(type==='penOwn'||type==='penOpp')s.penalties.push({id:meta.id,team:type==='penOwn'?'own':'opp'});
+  if(type==='penEnd')s.penalties=s.penalties.filter(p=>p.id!==meta.penaltyId);
+  if(type==='empty')s.empty=true;if(type==='keeperBack')s.empty=false;
+  const own=s.penalties.filter(p=>p.team==='own').length,opp=s.penalties.filter(p=>p.team==='opp').length;
+  s.penalty=s.penalties[0]?.team||null;
+  s.mode=own>opp?'Boxplay':opp>own?'Powerplay':s.empty?'6 mot 5':'5 mot 5';
+  if(type==='period')s.line='Femma 1';
+  if(s.mode==='Boxplay')s.line='BP1';if(s.mode==='Powerplay')s.line='PP1';
+  if(type==='end')s.mode='Match slut';
+ }
+ window.mcApplySimulationEvent=applySimulationEvent;
  function generateMatch(seed){
   const rand=rngFromSeed(seed),range=(a,b)=>a+Math.floor(rand()*(b-a+1));
   const own=['Rasse','Jonte','Algot','William','Alfons','Vidar','Emil','Sigge','Wisnu','Logarn'];
@@ -3913,7 +4032,7 @@ function init(){
    e[5]={scorer,assist,blocker:blocked?(ours?'Motståndare #'+range(2,22):pick()):''};
   });
   out.push([2700,'end','Matchen slut']);
-  return out;
+  return normalizeSimulationEvents(out);
  }
  function seedControls(){
   if(document.getElementById('mcTcSeed'))return;
@@ -3923,22 +4042,11 @@ function init(){
   document.getElementById('mcTcReplay').addEventListener('click',()=>{if(lastSeed===null)return;replaySeed=lastSeed;reset()});
  }
 
- function reset(){stop();index=0;events=($('mcTcScenario').value==='full'&&document.getElementById('mcTcRandom')?.checked)?generateMatch(lastSeed=replaySeed===null?randomSeed():replaySeed):scenarios[$('mcTcScenario').value];replaySeed=null;if(document.getElementById('mcTcSeed'))document.getElementById('mcTcSeed').value=lastSeed===null?'':String(lastSeed);shots=[];checks=[];$('mcTcShotDetails').hidden=true;state={own:0,opp:0,mode:'5 mot 5',line:'Femma 1',penalty:null,seconds:0};$('mcTcLog').replaceChildren();$('mcTcPlay').textContent='▶ Starta';render()}
+ function reset(){stop();index=0;selectedShotIndex=-1;$('mcTcCourt').querySelectorAll('[data-shot-index]').forEach(n=>n.remove());events=normalizeSimulationEvents(($('mcTcScenario').value==='full'&&document.getElementById('mcTcRandom')?.checked)?generateMatch(lastSeed=replaySeed===null?randomSeed():replaySeed):scenarios[$('mcTcScenario').value]);replaySeed=null;if(document.getElementById('mcTcSeed'))document.getElementById('mcTcSeed').value=lastSeed===null?'':String(lastSeed);shots=[];checks=[];$('mcTcShotDetails').hidden=true;state={own:0,opp:0,mode:'5 mot 5',line:'Femma 1',penalty:null,seconds:0};$('mcTcLog').replaceChildren();$('mcTcPlay').textContent='▶ Starta';render()}
  function assert(name,ok){checks.push({name,ok});if(!ok){const p=document.createElement('p');p.className='mc-tc-bad';p.textContent='⚠ Kontrollfel: '+name;$('mcTcLog').prepend(p)}}
  function step(){
  if(index>=events.length){stop();$('mcTcPlay').textContent='▶ Starta';return}
- const [time,type,description,x,y,meta={}]=events[index++];state.seconds=time;
- if(type==='start'||type==='swap')state.line=type==='start'?'Femma 1':description;
- if(type==='goalOwn')state.own++;
- if(type==='goalOpp')state.opp++;
- if(type==='penOwn'){state.penalty='own';state.mode='Boxplay'}
- if(type==='penOpp'){state.penalty='opp';state.mode='Powerplay'}
- if(type==='bp')state.line='BP1';
- if(type==='pp')state.line='PP1';
- if(type==='penEnd'){state.penalty=null;state.mode='5 mot 5'}
- if(type==='empty')state.mode='6 mot 5';
- if(type==='period'){state.mode='5 mot 5';state.line='Femma 1'}
- if(type==='end')state.mode='Match slut';
+ const event=events[index++];const [time,type,description,x,y,meta={}]=event;applySimulationEvent(state,event);
  if(Number.isFinite(x)&&Number.isFinite(y)){
   const own=type==='shot'||type==='goalOwn',goal=type==='goalOwn'||type==='goalOpp';
   const record={x,y,team:own?'own':'opp',attackTop:own,period:Math.min(3,Math.floor(Math.max(0,time-1)/900)+1),time:time>0&&time%900===0?900:time%900,
@@ -3950,6 +4058,8 @@ function init(){
  assert('Målställning icke-negativ',state.own>=0&&state.opp>=0);
  assert('Skottkoordinat inom planen',!Number.isFinite(x)||(x>=0&&x<=1&&y>=0&&y<=1));
  assert('BP/PP har aktiv utvisning',!(type==='bp'||type==='pp')||!!state.penalty);
+ if((type==='goalOwn'&&state.mode==='Powerplay')||(type==='goalOpp'&&state.mode==='Boxplay'))assert('PP-mål avslutar aktiv tvåminutersutvisning',events[index]?.[1]==='penEnd'&&events[index]?.[0]===time);
+ if(type==='keeperBack')assert('Målvakt tillbaka avslutar 6 mot 5',!state.empty&&state.mode!=='6 mot 5');
  const p=document.createElement('p');p.dataset.matchSecond=String(time);p.textContent='P'+Math.min(3,Math.floor(Math.max(0,time-1)/900)+1)+' '+clock(time>0&&time%900===0?900:time%900)+' · '+description;$('mcTcLog').prepend(p);
  render();if(index>=events.length){stop();$('mcTcPlay').textContent='▶ Starta'}
  }
@@ -4307,7 +4417,9 @@ function init(){
    const suggestions=Array.from(document.querySelectorAll('#tcvReport p')).filter(p=>/^\[(Hög|Medel|Låg|Info)\]/.test(p.textContent||''));
    suggestions.slice(0,5).forEach(p=>line('Förslag: '+p.textContent));
    line('Ej testat: faktisk Shotmap Pro-registrering, matchknappar och skrivning till säsongsarkivet.');
-   const parts=[engine,stats,a];const pass=parts.reduce((n,p)=>n+(p?.pass||0),0);const fail=parts.reduce((n,p)=>n+(p?.fail||0),0)+(finished?0:1)+parts.filter(p=>!p).length;
+   const regression=window.mcRunRegressionChecks?.();
+   if(regression){regression.results.forEach(r=>line((r.ok?'✓ ':'✕ ')+r.name,r.ok?'good':'bad'));line('Rättningskontroller: '+regression.pass+' godkända, '+regression.fail+' fel',regression.fail?'bad':'good')}
+   const parts=[engine,stats,a,regression||null];const pass=parts.reduce((n,p)=>n+(p?.pass||0),0);const fail=parts.reduce((n,p)=>n+(p?.fail||0),0)+(finished?0:1)+parts.filter(p=>!p).length;
    latest={pass,fail,finished,scenario:'full',version:'3.0'};
    $('mc3Status').textContent='Klart · '+pass+' godkända · '+fail+' fel'+(fail?' · åtgärd krävs':' · alla genomförda kontroller gröna');
    $('mc3Status').className=fail?'mc3-bad':'mc3-good';
@@ -4321,4 +4433,32 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+<script id="mc-audit-regression-checks">
+(function(){
+'use strict';
+window.mcRunRegressionChecks=function(){
+ const results=[];
+ const check=(name,test)=>{try{results.push({name,ok:!!test()})}catch(error){results.push({name,ok:false,error:String(error)})}};
+ const fixture=()=>({lines:Array.from({length:8},()=>Array(5).fill('')),period:'1',seconds:0,events:[],shifts:[],penalties:[],active:null});
+ check('Målskytt kan inte assistera sig själv',()=>!mcValidGoal('Mål framåt','A','A')&&mcValidGoal('Mål framåt','A','B'));
+ check('Ogiltig matchhändelse avvisas före import',()=>{const s=fixture();s.events=[{period:1,time:1,type:'Mål framåt',mode:'5v5'}];try{mcValidateMatch(s);return false}catch{return true}});
+ check('Giltig matchfil kan importeras',()=>mcValidateMatch(fixture()).lines.length===8);
+ check('Närvaro räknar alla sparade träningar',()=>{const r=mcAttendanceCount({a:{},b:{},c:{}},{present:1,absent:0,excused:0});return r.total===3&&r.absent===2&&r.percent===33});
+ check('Internhändelse vid 00:00 räknas som påbörjad match',()=>mcHasMatchData({...fixture(),internalStatEvents:[{type:'goal',team:'blue'}]}));
+ check('PP-mål kvittar utvisningen vid samma matchsekund',()=>{const e=window.mcNormalizeSimulationEvents([[0,'start','Start'],[10,'penOpp','Utvisning'],[50,'goalOwn','Mål'],[2700,'end','Slut']]);const i=e.findIndex(x=>x[1]==='goalOwn');return e[i+1][1]==='penEnd'&&e[i+1][0]===50});
+ check('Målvakt tillbaka ger 5 mot 5',()=>{const s={own:0,opp:0,line:'Femma 1'};window.mcApplySimulationEvent(s,[20,'empty','6 mot 5']);window.mcApplySimulationEvent(s,[30,'keeperBack','Målvakten tillbaka']);return s.mode==='5 mot 5'&&!s.empty});
+ check('Ångra mål återställer BP och spärrar utvisad spelare',()=>{
+  const s=fixture();s.seconds=150;s.penalties=[{team:'own',player:'C',minutes:2,period:1,time:100,endedAt:150,endedByGoal:true}];s.active={line:5,players:['A','B','D','E'],positionPlayers:['A','B','','D','E'],start:100,period:'1'};
+  const functions=[matchTime,penaltyEnd,activePenalties,penaltyMode,canEndMinorOnGoal,endMinorOnGoal,mcExcludedBP,mcBPRequired,closeActive,mcReturnExpiredPlayers,window.mcRebuildPenaltyEffects,statFor];
+  const factory=new Function('state','const elapsed=()=>state.seconds,save=()=>{},confirm=()=>true,fmt=String;'+functions.map(f=>f.toString()).join('\n')+';return {mcReturnExpiredPlayers,rebuildPenaltyEffects,penaltyMode,statFor}');
+  const sandbox=factory(s);sandbox.mcReturnExpiredPlayers();if(s.active.players.length!==5)return false;
+  sandbox.rebuildPenaltyEffects();if(sandbox.penaltyMode()!=='BP'||!s.active||s.active.players.includes('C')||s.active.players.length!==4||sandbox.statFor('C').time!==0)return false;
+  s.seconds=225;sandbox.mcReturnExpiredPlayers();return s.active.players.length===5&&sandbox.statFor('C').time===5;
+ });
+ check('Unika element-ID:n i appen',()=>{const ids=Array.from(document.querySelectorAll('[id]'),n=>n.id);return new Set(ids).size===ids.length});
+ const pass=results.filter(r=>r.ok).length;return {pass,fail:results.length-pass,results};
+};
+})();
+</script>
+
 </body></html>
