@@ -3888,4 +3888,92 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
 })();
 </script>
+
+<style id="mc-testcenter-v2-css">
+#mcTcV2{margin-top:15px;padding:12px;background:#0b1d30;border:1px solid #43617e;border-radius:12px}
+#mcTcV2 .tcv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+#mcTcV2 .tcv-metric{background:#1a3550;border-radius:9px;padding:10px}
+#mcTcV2 .tcv-metric strong{display:block;font-size:22px}
+#mcTcV2 .tcv-report{max-height:320px;overflow:auto}
+#mcTcV2 .tcv-report p{margin:6px 0;padding:7px;border-bottom:1px solid #2c465f}
+#mcTcV2 button{margin:4px}
+</style>
+<script id="mc-testcenter-v2">
+(function(){
+'use strict';
+function ready(){
+ const host=document.getElementById('mcTestCenter');
+ if(!host||document.getElementById('mcTcV2'))return;
+ const root=document.createElement('section');root.id='mcTcV2';
+ root.innerHTML='<h3 style="margin:0">🔎 Testcenter 2.0 · förbättringsanalys</h3>'+
+ '<p class="help">Analyserar den fiktiva uppspelningen, kontrollerar matchregler och ger prioriterade förbättringsförslag. En separat skrivskyddad kontroll granskar vissa riktiga Matchcoach-funktioner.</p>'+
+ '<div class="tcv-grid"><div class="tcv-metric">Kontroller<strong id="tcvChecks">0/0</strong></div><div class="tcv-metric">Händelser<strong id="tcvEvents">0</strong></div><div class="tcv-metric">Förslag<strong id="tcvIdeas">0</strong></div></div>'+
+ '<div><button type="button" id="tcvAnalyze">Analysera hittills</button><button type="button" class="secondary" id="tcvCore">Testa riktiga funktioner</button><button type="button" class="secondary" id="tcvBaseline">Spara jämförelse</button></div>'+
+ '<div id="tcvCompare" class="help">Ingen jämförelse sparad i denna session.</div>'+
+ '<h4>Rapport</h4><div class="tcv-report" id="tcvReport" aria-live="polite"></div>'+
+ '<p class="help">Avgränsning: uppspelningshändelserna är syntetiska. Den skrivskyddade funktionskontrollen ändrar inte matchdata. Fullt integrationstest av registrering, Shotmap Pro och arkivering återstår.</p>';
+ host.append(root);
+ const $=id=>document.getElementById(id);
+ let baseline=null,last=null;
+ function renderLine(text,kind){
+  const p=document.createElement('p');p.textContent=text;
+  if(kind)p.style.color=kind==='fail'?'#ffb4a7':'#a2edbd';
+  $('tcvReport').append(p);
+ }
+ function analyze(){
+  const log=$('mcTcLog');const rows=Array.from(log?.querySelectorAll('p')||[]).map(x=>x.textContent||'').reverse();
+  const scenario=$('mcTcScenario')?.value||'full';
+  const total=rows.length,shots=rows.filter(x=>/skott/i.test(x)).length,goals=rows.filter(x=>/mål/i.test(x)&&!/målvakt/i.test(x)).length;
+  const pens=rows.filter(x=>/utvisning/i.test(x)&&!/slut|avslut|kvitt/i.test(x)).length;
+  const changes=rows.filter(x=>/byte|femma|BP1|PP1/i.test(x)).length;
+  const checks=[],ideas=[];
+  function test(name,ok){checks.push({name,ok:!!ok})}
+  test('Händelselogg finns',total>0);
+  test('Tidsstämpel finns på varje händelse',rows.every(x=>/^P[1-3] \d{2}:\d{2} · /.test(x)));
+  test('Ingen felmarkerad regelkontroll',!Array.from(log?.querySelectorAll('.mc-tc-bad')||[]).length);
+  const times=rows.map(x=>{const m=x.match(/^P(\d) (\d{2}):(\d{2})/);return m?(Number(m[1])-1)*900+Number(m[2])*60+Number(m[3]):NaN});
+  test('Händelser i kronologisk ordning',times.every((n,i)=>Number.isFinite(n)&&(i===0||n>=times[i-1])));
+  const finished=rows.some(x=>/matchen slut|· Slut$/i.test(x));
+  if(finished)test('Full matchtid 45 minuter',times[times.length-1]===2700);
+  if(pens)test('Utvisningar har avslut eller kvittning i scenariot',rows.some(x=>/kvitt|utvisningen slut|utvisning avslutas|utvisningen avslutad/i.test(x)));
+  if(shots===0)ideas.push({priority:'Medel',type:'Matchanalys',text:'Inga registrerade skott i scenariot. Lägg till fler skottlägen för att kunna utvärdera skottkartan.'});
+  if(changes<3)ideas.push({priority:'Medel',type:'Matchflöde',text:'Få femmabyten i scenariot. Ett stresstest bör även omfatta täta byten och speltidskontroller.'});
+  if(!rows.some(x=>/6 mot 5/i.test(x)))ideas.push({priority:'Låg',type:'Taktik',text:'Komplettera med spel utan målvakt för att kontrollera sena matchlägen.'});
+  if(!rows.some(x=>/powerplay|PP1/i.test(x)))ideas.push({priority:'Medel',type:'Special teams',text:'Lägg till powerplay och kvittning vid mål i testförloppet.'});
+  if(!finished)ideas.push({priority:'Info',type:'Testtäckning',text:'Simuleringen är inte färdig. Kör klart för slutrapport över hela matchen.'});
+  ideas.push({priority:'Hög',type:'Teknisk testtäckning',text:'Koppla nästa version till riktiga händelseregistreringen, skottkartan och arkiveringen i en isolerad matchmotor.'});
+  const pass=checks.filter(x=>x.ok).length;
+  $('tcvChecks').textContent=pass+'/'+checks.length;
+  $('tcvEvents').textContent=String(total);
+  $('tcvIdeas').textContent=String(ideas.length);
+  $('tcvReport').replaceChildren();
+  renderLine('Scenario: '+scenario+' · '+total+' händelser · '+shots+' skotthändelser · '+goals+' målhändelser · '+pens+' utvisningar · '+changes+' femma-/byteshändelser');
+  checks.forEach(c=>renderLine((c.ok?'✓ ':'✕ ')+c.name,c.ok?'ok':'fail'));
+  ideas.forEach(i=>renderLine('['+i.priority+'] '+i.type+': '+i.text));
+  last={scenario,total,pass,checks:checks.length,ideas:ideas.length,finished};
+  if(baseline){const delta=last.pass-baseline.pass;const eventDelta=last.total-baseline.total;$('tcvCompare').textContent='Jämförelse med sparat test ('+baseline.scenario+'): '+(delta>=0?'+':'')+delta+' godkända kontroller, '+(eventDelta>=0?'+':'')+eventDelta+' händelser. Olika scenarier är inte direkt jämförbara.'}
+  return last;
+ }
+ $('tcvAnalyze').addEventListener('click',analyze);
+ $('tcvBaseline').addEventListener('click',()=>{baseline={...analyze()};$('tcvCompare').textContent='Jämförelse sparad för denna session: '+baseline.scenario+' · '+baseline.pass+'/'+baseline.checks+' kontroller.'});
+ $('tcvCore').addEventListener('click',()=>{
+  const results=[];function test(n,fn){try{results.push({name:n,ok:!!fn()})}catch(e){results.push({name:n,ok:false,error:String(e)})}}
+  test('Positionsfunktion mcSlotsForActive är tillgänglig',()=>typeof mcSlotsForActive==='function');
+  test('Fem tomma positioner hanteras',()=>{if(typeof mcSlotsForActive!=='function')return false;const a=mcSlotsForActive({line:0,players:[],positionPlayers:['','','','','']});return Array.isArray(a)&&a.length===5&&a.every(x=>x==='')});
+  test('Explicit positionsordning bevaras',()=>{if(typeof mcSlotsForActive!=='function')return false;const a=['A','','C','','E'];return JSON.stringify(mcSlotsForActive({line:0,players:['A','C','E'],positionPlayers:a}))===JSON.stringify(a)});
+  test('Bytesfilter returnerar lista',()=>typeof mcAvailableForSwap==='function'&&Array.isArray(mcAvailableForSwap()));
+  test('Utvisningsläge har känt värde',()=>typeof penaltyMode==='function'&&['PP','BP','5v5'].includes(penaltyMode()));
+  const passed=results.filter(x=>x.ok).length;
+  $('tcvReport').replaceChildren();renderLine('Skrivskyddad kontroll av befintliga funktioner: '+passed+'/'+results.length+' godkända.');
+  results.forEach(x=>renderLine((x.ok?'✓ ':'✕ ')+x.name+(x.error?' · '+x.error:''),x.ok?'ok':'fail'));
+  renderLine('Detta kontrollerar utvalda hjälpfunktioner i den pågående appen. Det är inte en fullständig simulerad match i den riktiga matchmotorn.');
+  $('tcvChecks').textContent=passed+'/'+results.length;
+ });
+ // Do not mutate the existing match state or the test scenario. Read only its log.
+ const log=$('mcTcLog');
+ if(log){let pending=false;new MutationObserver(()=>{if(pending)return;pending=true;queueMicrotask(()=>{pending=false;if(!$('mcTestCenter')?.hidden)analyze()})}).observe(log,{childList:true})}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
+})();
+</script>
 </body></html>
