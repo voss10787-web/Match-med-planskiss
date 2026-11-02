@@ -3808,12 +3808,12 @@ function init(){
  };
  let index=0,events=scenarios.full,timer=null,shots=[],checks=[],state={own:0,opp:0,mode:'5 mot 5',line:'Femma 1',penalty:null,seconds:0};
  function stop(){if(timer!==null){clearInterval(timer);timer=null}}
- function clock(n){return String(Math.floor(n/60)%15).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+ function clock(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
  function render(){
  const current=state.seconds,period=Math.min(3,Math.floor(Math.max(0,current-1)/900)+1);
  $('mcTcScore').textContent=state.own+' – '+state.opp;
  $('mcTcPeriod').textContent='Period '+period;
- $('mcTcClock').textContent=clock(current===2700?900:current%900);
+ $('mcTcClock').textContent=clock(current>0&&current%900===0?900:current%900);
  $('mcTcMode').textContent=state.mode;
  $('mcTcLine').textContent='Aktuell femma: '+state.line;
  $('mcTcStatus').textContent=index>=events.length?'Färdig':'Händelse '+index+' av '+events.length;
@@ -3845,7 +3845,7 @@ function init(){
  assert('Målställning icke-negativ',state.own>=0&&state.opp>=0);
  assert('Skottkoordinat inom planen',!Number.isFinite(x)||(x>=0&&x<=1&&y>=0&&y<=1));
  assert('BP/PP har aktiv utvisning',!(type==='bp'||type==='pp')||!!state.penalty);
- const p=document.createElement('p');p.textContent='P'+Math.min(3,Math.floor(Math.max(0,time-1)/900)+1)+' '+clock(time%900)+' · '+description;$('mcTcLog').prepend(p);
+ const p=document.createElement('p');p.dataset.matchSecond=String(time);p.textContent='P'+Math.min(3,Math.floor(Math.max(0,time-1)/900)+1)+' '+clock(time>0&&time%900===0?900:time%900)+' · '+description;$('mcTcLog').prepend(p);
  render();if(index>=events.length){stop();$('mcTcPlay').textContent='▶ Starta'}
  }
  launch.addEventListener('click',()=>{panel.hidden=!panel.hidden;if(!panel.hidden){reset();panel.scrollIntoView({behavior:'smooth',block:'start'})}else stop()});
@@ -3931,7 +3931,7 @@ function ready(){
   test('Händelselogg finns',total>0);
   test('Tidsstämpel finns på varje händelse',rows.every(x=>/^P[1-3] \d{2}:\d{2} · /.test(x)));
   test('Ingen felmarkerad regelkontroll',!Array.from(log?.querySelectorAll('.mc-tc-bad')||[]).length);
-  const times=rows.map(x=>{const m=x.match(/^P(\d) (\d{2}):(\d{2})/);return m?(Number(m[1])-1)*900+Number(m[2])*60+Number(m[3]):NaN});
+  const times=Array.from(log?.querySelectorAll('p[data-match-second]')||[]).reverse().map(p=>Number(p.dataset.matchSecond));
   test('Händelser i kronologisk ordning',times.every((n,i)=>Number.isFinite(n)&&(i===0||n>=times[i-1])));
   const finished=rows.some(x=>/matchen slut|· Slut$/i.test(x));
   if(finished)test('Full matchtid 45 minuter',times[times.length-1]===2700);
