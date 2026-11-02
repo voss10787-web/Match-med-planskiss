@@ -3764,4 +3764,99 @@ let queued=false;const obs=new MutationObserver(mutations=>{if(!mutations.some(m
 function init(){scan();obs.observe(document.body,{subtree:true,childList:true});document.addEventListener('click',e=>{if(e.target.closest('[data-match]'))queueMicrotask(()=>document.querySelectorAll('.mcHeatMount .mcHeatPanel').forEach(p=>draw(p,p.closest('.mcHeatMount').dataset.heatSeason)))});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
-</script></body></html>
+</script>
+<style id="mc-testcenter-style">
+#mcTestCenter{max-width:1100px;margin:18px auto;background:#14283e;border:1px solid #4b6683;border-radius:14px;padding:14px;color:#eef5ff}
+#mcTestCenter[hidden]{display:none!important}
+#mcTestCenter .mc-tc-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+#mcTestCenter .mc-tc-board{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#0a192b;border-radius:12px;padding:14px;margin:12px 0}
+#mcTestCenter .mc-tc-score{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums}
+#mcTestCenter .mc-tc-controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+#mcTestCenter .mc-tc-controls select{max-width:180px}
+#mcTestCenter .mc-tc-log{max-height:230px;overflow:auto;background:#0b1c2f;border-radius:9px;padding:8px}
+#mcTestCenter .mc-tc-log p{padding:7px;margin:0;border-bottom:1px solid #2c455d;font-size:13px}
+#mcTestCenter .mc-tc-ok{color:#78e5a7}#mcTestCenter .mc-tc-bad{color:#ffb4a7}
+#mcTestCenter .mc-tc-court{height:145px;border:2px solid #8cc8bb;border-radius:12px;background:linear-gradient(90deg,#183d3c,#14504b);position:relative;margin:10px auto;max-width:300px}
+#mcTestCenter .mc-tc-court:before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid #b2d9d3}
+#mcTestCenter .mc-tc-dot{position:absolute;background:#f7dc77;width:12px;height:12px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%)}
+#mcTestCenter .mc-tc-progress{height:7px;border-radius:8px;background:#354c63;overflow:hidden}
+#mcTestCenter .mc-tc-progress span{display:block;height:100%;background:#4bd3a2;width:0}
+</style>
+<script id="mc-testcenter-v1">
+(function(){
+'use strict';
+function init(){
+ if(document.getElementById('mcTestCenter'))return;
+ const nav=document.getElementById('mcViewNav');
+ if(!nav)return;
+ const launch=document.createElement('button');launch.type='button';launch.className='secondary';launch.id='mcTestCenterToggle';launch.textContent='🧪 Testcenter · simulerad match';launch.style.cssText='display:block;width:100%;margin:12px 0 4px';
+ nav.parentNode.insertBefore(launch,nav.nextSibling);
+ const panel=document.createElement('section');panel.id='mcTestCenter';panel.hidden=true;
+ panel.innerHTML='<div class="mc-tc-top"><div><h2 style="margin:0">🧪 Matchcoach Testcenter</h2><p class="help">Separat, fiktiv match. Ändrar aldrig riktiga matcher, trupp, närvaro eller säsongsstatistik.</p></div><button id="mcTcClose" class="secondary" type="button">Stäng</button></div>'+
+ '<div class="mc-tc-controls"><label>Scenario <select id="mcTcScenario"><option value="full">Full match</option><option value="stress">Stresstest</option><option value="special">PP / BP / 6 mot 5</option></select></label><label>Hastighet <select id="mcTcSpeed"><option value="1">1×</option><option value="5" selected>5×</option><option value="20">20×</option><option value="50">50×</option></select></label></div>'+
+ '<div class="mc-tc-board"><div><div class="help">ÖJABY – MOTSTÅNDARE</div><div id="mcTcScore" class="mc-tc-score">0 – 0</div><div id="mcTcMode" class="help">5 mot 5</div></div><div style="text-align:right"><div id="mcTcPeriod">Period 1</div><div id="mcTcClock" class="mc-tc-score">00:00</div><div id="mcTcStatus" class="help">Redo</div></div></div>'+
+ '<div class="mc-tc-progress"><span id="mcTcProgress"></span></div><div id="mcTcCourt" class="mc-tc-court" aria-label="Fiktiv skottkarta"></div>'+
+ '<div class="mc-tc-controls"><button id="mcTcPlay" type="button">▶ Starta</button><button id="mcTcNext" class="secondary" type="button">Nästa händelse</button><button id="mcTcReset" class="secondary" type="button">↻ Nollställ</button></div>'+
+ '<p id="mcTcLine" class="help">Aktuell femma: –</p><h3>Händelser</h3><div id="mcTcLog" class="mc-tc-log" aria-live="polite"></div><h3>Automatiska kontroller</h3><div id="mcTcChecks" class="help">Starta simuleringen för att visa kontroller.</div>'+
+ '<p class="help">Version 1: visuell, isolerad scenario- och regelkontroll. Den anropar ännu inte alla ordinarie matchknappar, Shotmap Pro eller säsongsarkiveringen. Resultatet är därför inte ett fullständigt integrationstest.</p>';
+ launch.after(panel);
+ const $=id=>panel.querySelector('#'+id);
+ const scenarios={
+  full:[[0,'start','Femma 1 startar'],[72,'shot','Skott Rasse',.3,.2],[145,'swap','Byte till femma 2'],[242,'goalOwn','Mål Jonte · assist Rasse',.53,.12],[370,'penOwn','Utvisning Öjaby 2 min'],[371,'bp','BP1 in'],[438,'shotOpp','Motståndarskott',.65,.8],[490,'goalOpp','Motståndarna kvitterar',.7,.85],[491,'penEnd','Utvisningen kvittad vid mål'],[610,'swap','Femma 3 in'],[890,'shot','Skott Algot',.3,.25],[900,'period','Period 2'],[1010,'shotOpp','Motståndarskott',.42,.76],[1140,'penOpp','Utvisning motståndare 2 min'],[1141,'pp','PP1 in'],[1200,'goalOwn','Mål i powerplay',.46,.08],[1201,'penEnd','Utvisningen avslutad vid PP-mål'],[1440,'swap','Femma 1 in'],[1800,'period','Period 3'],[1930,'shot','Skott Rasse',.7,.18],[2160,'goalOpp','Motståndarmål',.45,.82],[2450,'empty','Öjaby tar ut målvakten – 6 mot 5'],[2590,'goalOwn','Kvittering 6 mot 5',.51,.09],[2650,'swap','Målvakten tillbaka'],[2700,'end','Matchen slut']],
+  special:[[0,'start','Femma 1'],[90,'penOwn','Utvisning Öjaby'],[91,'bp','BP1'],[140,'shotOpp','Skott i BP',.5,.8],[210,'penEnd','Utvisningen slut'],[300,'penOpp','Utvisning motståndare'],[301,'pp','PP1'],[340,'goalOwn','PP-mål',.5,.12],[341,'penEnd','Utvisning avslutas'],[900,'period','Period 2'],[1800,'period','Period 3'],[2350,'empty','6 mot 5 utan målvakt'],[2600,'goalOwn','Mål 6 mot 5',.6,.12],[2700,'end','Slut']],
+  stress:[[0,'start','Femma 1'],[20,'shot','Skott',.2,.2],[40,'swap','Byte'],[60,'shotOpp','Skott',.7,.8],[80,'swap','Byte'],[100,'goalOwn','Mål',.3,.15],[130,'penOwn','Utvisning'],[131,'bp','BP'],[170,'shotOpp','Skott',.7,.8],[220,'goalOpp','Mål bakåt',.6,.8],[221,'penEnd','Kvittning'],[270,'swap','Byte'],[300,'shot','Skott',.4,.1],[900,'period','Period 2'],[940,'penOpp','Utvisning'],[941,'pp','PP'],[980,'goalOwn','PP-mål',.5,.1],[981,'penEnd','Kvittning'],[1800,'period','Period 3'],[1900,'swap','Byte'],[2100,'goalOpp','Mål bakåt',.5,.8],[2500,'empty','6 mot 5'],[2600,'shot','Skott',.6,.1],[2700,'end','Slut']]
+ };
+ let index=0,events=scenarios.full,timer=null,shots=[],checks=[],state={own:0,opp:0,mode:'5 mot 5',line:'Femma 1',penalty:null,seconds:0};
+ function stop(){if(timer!==null){clearInterval(timer);timer=null}}
+ function clock(n){return String(Math.floor(n/60)%15).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+ function render(){
+ const current=state.seconds,period=Math.min(3,Math.floor(Math.max(0,current-1)/900)+1);
+ $('mcTcScore').textContent=state.own+' – '+state.opp;
+ $('mcTcPeriod').textContent='Period '+period;
+ $('mcTcClock').textContent=clock(current===2700?900:current%900);
+ $('mcTcMode').textContent=state.mode;
+ $('mcTcLine').textContent='Aktuell femma: '+state.line;
+ $('mcTcStatus').textContent=index>=events.length?'Färdig':'Händelse '+index+' av '+events.length;
+ $('mcTcProgress').style.width=(index/events.length*100)+'%';
+ const court=$('mcTcCourt');court.replaceChildren();
+ shots.forEach(p=>{const dot=document.createElement('span');dot.className='mc-tc-dot';dot.style.left=(p[0]*100)+'%';dot.style.top=(p[1]*100)+'%';dot.style.background=p[2]?'#fca5a5':'#f7dc77';court.append(dot)});
+ const pass=checks.filter(x=>x.ok).length;
+ $('mcTcChecks').textContent=checks.length?pass+' / '+checks.length+' kontroller godkända'+(pass<checks.length?' · FEL UPPTÄCKT':''):'Inga kontroller ännu';
+ $('mcTcChecks').className=pass===checks.length?'mc-tc-ok':'mc-tc-bad';
+ }
+ function reset(){stop();index=0;events=scenarios[$('mcTcScenario').value];shots=[];checks=[];state={own:0,opp:0,mode:'5 mot 5',line:'Femma 1',penalty:null,seconds:0};$('mcTcLog').replaceChildren();$('mcTcPlay').textContent='▶ Starta';render()}
+ function assert(name,ok){checks.push({name,ok});if(!ok){const p=document.createElement('p');p.className='mc-tc-bad';p.textContent='⚠ Kontrollfel: '+name;$('mcTcLog').prepend(p)}}
+ function step(){
+ if(index>=events.length){stop();$('mcTcPlay').textContent='▶ Starta';return}
+ const [time,type,description,x,y]=events[index++];state.seconds=time;
+ if(type==='start'||type==='swap')state.line=type==='start'?'Femma 1':description;
+ if(type==='goalOwn')state.own++;
+ if(type==='goalOpp')state.opp++;
+ if(type==='penOwn'){state.penalty='own';state.mode='Boxplay'}
+ if(type==='penOpp'){state.penalty='opp';state.mode='Powerplay'}
+ if(type==='bp')state.line='BP1';
+ if(type==='pp')state.line='PP1';
+ if(type==='penEnd'){state.penalty=null;state.mode='5 mot 5'}
+ if(type==='empty')state.mode='6 mot 5';
+ if(type==='period'){state.mode='5 mot 5';state.line='Femma 1'}
+ if(type==='end')state.mode='Match slut';
+ if(Number.isFinite(x)&&Number.isFinite(y))shots.push([x,y,type==='goalOwn'||type==='goalOpp']);
+ assert('Matchtid 0–2700',time>=0&&time<=2700);
+ assert('Målställning icke-negativ',state.own>=0&&state.opp>=0);
+ assert('Skottkoordinat inom planen',!Number.isFinite(x)||(x>=0&&x<=1&&y>=0&&y<=1));
+ assert('BP/PP har aktiv utvisning',!(type==='bp'||type==='pp')||!!state.penalty);
+ const p=document.createElement('p');p.textContent='P'+Math.min(3,Math.floor(Math.max(0,time-1)/900)+1)+' '+clock(time%900)+' · '+description;$('mcTcLog').prepend(p);
+ render();if(index>=events.length){stop();$('mcTcPlay').textContent='▶ Starta'}
+ }
+ launch.addEventListener('click',()=>{panel.hidden=!panel.hidden;if(!panel.hidden){reset();panel.scrollIntoView({behavior:'smooth',block:'start'})}else stop()});
+ $('mcTcClose').addEventListener('click',()=>{stop();panel.hidden=true});
+ $('mcTcScenario').addEventListener('change',reset);
+ $('mcTcReset').addEventListener('click',reset);
+ $('mcTcNext').addEventListener('click',()=>{stop();$('mcTcPlay').textContent='▶ Starta';step()});
+ $('mcTcPlay').addEventListener('click',()=>{if(timer!==null){stop();$('mcTcPlay').textContent='▶ Fortsätt';return}if(index>=events.length)reset();$('mcTcPlay').textContent='⏸ Pausa';const delay=Math.max(100,1200/Number($('mcTcSpeed').value));timer=setInterval(step,delay);step()});
+ reset();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+</body></html>
