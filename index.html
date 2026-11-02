@@ -4090,7 +4090,7 @@ function init(){
    {period:3,time:280,type:'Skott i täck',shooter:'B',mode:'5v5',players,shotX:.6,shotY:.4}
   ],penalties:[{period:1,time:190,team:'own',player:'F',minutes:2}]};
   let api;
-  try{api=new Function('state',statsSource+';return {gameSegments,getStats,snapshot}')(match)}
+  try{api=new Function('state',statsSource+';return {gameSegments,getStats,snapshot:()=>JSON.parse(JSON.stringify({...state,running:false}))}')(match)}
   catch(e){check('Statistikmotorn kan laddas',e.message,'OK');$('mcItSummary').textContent='Fel vid laddning';return}
   const a=api.getStats(match,'A'),b=api.getStats(match,'B'),f=api.getStats(match,'F');
   check('Speltid A i sekunder',a.time,720);
