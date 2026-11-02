@@ -355,7 +355,7 @@ body.compact-matchboard #clockPanel .matchClockLayout #startClock::after{font-si
 <div class="trainingPlayers" id="trainingPlayers"></div>
 <div class="row" style="margin-top:12px"><button class="active" id="trainingSave" type="button">Spara närvaro</button><button class="danger" id="trainingDelete" type="button">Ta bort detta datum</button><span class="help" id="trainingFeedback" role="status"></span></div>
 <h3>📊 Närvarostatistik</h3>
-<div class="scroll"><table class="trainingStats"><thead><tr><th>Spelare</th><th>Närvarande</th><th>Frånvarande</th><th>Anmält förhinder</th><th>Närvaro</th></tr></thead><tbody id="trainingStatsBody"></tbody></table></div>
+<div class="scroll"><table class="trainingStats"><thead><tr><th scope="col" aria-sort="ascending"><button type="button" class="trainingSort" data-training-sort="name">Spelare<span aria-hidden="true"> ▲</span></button></th><th scope="col"><button type="button" class="trainingSort" data-training-sort="present">Närvarande<span aria-hidden="true"></span></button></th><th scope="col"><button type="button" class="trainingSort" data-training-sort="absent">Frånvarande<span aria-hidden="true"></span></button></th><th scope="col"><button type="button" class="trainingSort" data-training-sort="excused">Anmält förhinder<span aria-hidden="true"></span></button></th><th scope="col"><button type="button" class="trainingSort" data-training-sort="percent">Närvaro %<span aria-hidden="true"></span></button></th></tr></thead><tbody id="trainingStatsBody"></tbody></table></div>
 <p class="help">Närvaroprocent = närvarande / alla registrerade träningstillfällen. All frånvaro, även anmält förhinder, räknas som frånvaro. Endast sparade träningar ingår.</p>
 <div class="row"><button class="secondary" id="trainingCsv" type="button">Exportera CSV</button><button class="secondary" id="trainingBackup" type="button">Säkerhetskopiera närvaro (JSON)</button><label>Återställ närvaro <input accept=".json,application/json" id="trainingRestore" type="file"/></label></div>
 <div class="help" id="trainingSessions" style="margin-top:10px"></div>
@@ -1519,7 +1519,7 @@ updateBoard();
 #trainingPanel .trainingPlayer{background:#203650;border:1px solid #425b76;border-radius:9px;padding:9px}
 #trainingPanel .trainingPlayer strong{display:block;margin-bottom:5px;font-size:14px}
 #trainingPanel .trainingPlayer select{width:100%;box-sizing:border-box}
-#trainingPanel .trainingStats{min-width:510px}
+#trainingPanel .trainingStats{min-width:510px}#trainingPanel .trainingSort{display:flex;align-items:center;gap:5px;min-height:44px;width:100%;padding:6px 2px;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;text-align:left}#trainingPanel .trainingSort:focus-visible{outline:2px solid #79baff;outline-offset:2px}#trainingPanel .trainingSort span{white-space:pre}
 #trainingPanel .trainingControls label{min-width:155px}
 #trainingPanel button{min-height:40px}
 </style><script>
@@ -1542,9 +1542,19 @@ function statusOptions(selected){return [['present','Närvarande'],['absent','Fr
 function draw(){const date=dateField.value;if(!date)return;const saved=sessions[date];const entries=saved?.players||{};el('trainingDayInfo').textContent=(saved?'✓ Sparad träning · ':'Ej sparad · ')+weekday(fromIso(date))+' '+date;
 playersBox.innerHTML=rosterNames().map(n=>'<div class="trainingPlayer"><strong>'+esc(n)+'</strong><select data-player="'+esc(n)+'" aria-label="Närvaro '+esc(n)+'">'+statusOptions(entries[n]||'present')+'</select></div>').join('');
 el('trainingDelete').disabled=!saved;el('trainingFeedback').textContent='';drawStats()}
+let attendanceSort={key:'name',descending:false};
 function drawStats(){const names=rosterNames();const totals=new Map(names.map(n=>[n,{present:0,absent:0,excused:0}]));const dates=Object.keys(sessions).sort();for(const d of dates){const entries=sessions[d]?.players||{};for(const [n,v] of Object.entries(entries)){if(!totals.has(n))totals.set(n,{present:0,absent:0,excused:0});if(['present','absent','excused'].includes(v))totals.get(n)[v]++}}
-el('trainingStatsBody').innerHTML=[...totals].sort((a,b)=>nameSort(a[0],b[0])).map(([n,t])=>{const attendance=mcAttendanceCount(sessions,t),count=attendance.total,absent=attendance.absent;return '<tr><td>'+esc(n)+'</td><td>'+t.present+'</td><td>'+absent+'</td><td>'+t.excused+'</td><td>'+(count?Math.round(100*t.present/count)+' %':'–')+'</td></tr>'}).join('');
+const rows=[...totals].map(([name,t])=>{const attendance=mcAttendanceCount(sessions,t);return {name,present:t.present,absent:attendance.absent,excused:t.excused,percent:attendance.percent}});
+rows.sort((a,b)=>{
+ const key=attendanceSort.key;
+ if(key==='name')return (attendanceSort.descending?-1:1)*nameSort(a.name,b.name);
+ if(a[key]===null||b[key]===null)return a[key]===b[key]?nameSort(a.name,b.name):a[key]===null?1:-1;
+ return (attendanceSort.descending?b[key]-a[key]:a[key]-b[key])||nameSort(a.name,b.name);
+});
+el('trainingStatsBody').innerHTML=rows.map(t=>'<tr><td>'+esc(t.name)+'</td><td>'+t.present+'</td><td>'+t.absent+'</td><td>'+t.excused+'</td><td>'+(t.percent===null?'–':t.percent+' %')+'</td></tr>').join('');
+document.querySelectorAll('[data-training-sort]').forEach(button=>{const selected=button.dataset.trainingSort===attendanceSort.key;const th=button.closest('th');if(selected)th.setAttribute('aria-sort',attendanceSort.descending?'descending':'ascending');else th.removeAttribute('aria-sort');button.querySelector('span').textContent=selected?(attendanceSort.descending?' ▼':' ▲'):'';});
 el('trainingSessions').textContent=dates.length+' sparade träningar'+(dates.length?' · Senaste: '+dates.slice(-5).reverse().join(', '):'');}
+document.querySelector('#trainingPanel .trainingStats thead').addEventListener('click',e=>{const button=e.target.closest('[data-training-sort]');if(!button)return;const key=button.dataset.trainingSort;attendanceSort={key,descending:attendanceSort.key===key?!attendanceSort.descending:key!=='name'};drawStats()});
 function persist(){mcTestStorage.setItem(KEY_TRAIN,JSON.stringify(sessions))}
 function downloadFile(name,data,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([data],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 el('trainingPrev').onclick=()=>goTraining(-1);el('trainingNext').onclick=()=>goTraining(1);dateField.onchange=draw;
