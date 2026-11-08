@@ -574,7 +574,7 @@ function mcAvailableForSwap(){
  return names.filter(n=>!state.active?.players.includes(n)&&!blocked.has(n)&&roster.some(p=>p.name===n&&p.active&&!p.goalie));
 }
 function closeActive(){if(state.active){state.shifts.push({...state.active,end:elapsed(),duration:Math.max(0,elapsed()-state.active.start)});state.active=null}}
-async function switchLine(i){if(elapsed()>=900)return alert('Perioden är slut. Byt period innan du sätter in en femma.');if(i>=0&&i<=2)state.lastNormalLine=i;
+async function switchLine(i){if(elapsed()>=900)return alert('Perioden är slut. Byt period innan du sätter in en femma.');if(i>=0&&i<=2)state.lastNormalLine=i;if(i>=0&&i<=2){state.mcForward=i;state.mcBack=i;}
 let selected=state.lines[i].filter((name,j)=>name&&(i!==5&&i!==7||j!==2));if(new Set(selected).size!==selected.length)return alert('Samma spelare kan inte stå på flera positioner i samma femma.');if(i!==5&&i!==7&&selected.some(n=>mcExcludedBP().has(n)))return alert('En utvisad spelare finns i femman. Ändra femman innan den sätts in.');let players=[...selected];if(i===5||i===7){if(!await mcBPPrompt(i))return;players=mcBPPlayers(i);}
 if(i===3&&new Set(state.lines[3].filter(Boolean)).size!==state.lines[3].filter(Boolean).length)return alert('Extra/special innehåller samma spelare på flera positioner.');
 if(i===3&&state.active?.players?.length){
@@ -600,6 +600,49 @@ const absent=players.filter(n=>!roster.some(p=>p.name===n&&p.active&&!p.goalie))
 state.active.positionPlayers=(i===3&&state.mcNextSpecialPositions)?state.mcNextSpecialPositions:mcSlotsForActive(state.active);
 delete state.mcNextSpecialPositions;
 if([4,5,6,7].includes(i))state.mode=(i===4||i===6)?'PP':'BP';else state.mode=penaltyMode();save();render()}
+
+// Independent forward-chain and defensive-pair rotation (5v5 only).
+function mcUnitMode(){return true}
+function mcUnitLayout(){return localStorage.getItem('mcRotationMode')||'standard'}
+function mcUnitSlots(){return mcSlotsForActive(state.active)}
+function mcUnitSwitch(kind,index){
+ if(elapsed()>=900)return alert('Perioden är slut. Byt period först.');
+ if(state.mode==='PP'||state.mode==='BP'||state.active?.line>=4)return alert('Avsluta PP/BP och välj en ordinarie femma innan separata byten.');
+ const source=state.lines[index]||[];
+ const positions=kind==='forward'?[2,3,4]:[0,1];
+ const incoming=positions.map(pos=>source[pos]||'');
+ if(incoming.some(n=>!n))return alert('Fyll alla positioner i '+(kind==='forward'?'kedjan':'backparet')+' först.');
+ const current=state.active?mcUnitSlots():Array(5).fill('');
+ const next=[...current];positions.forEach((pos,i)=>next[pos]=incoming[i]);
+ const selected=next.filter(Boolean);
+ if(selected.length!==5)return alert('Välj först en komplett ordinarie femma (5 spelare) innan du byter kedja eller backpar separat.');
+ if(new Set(selected).size!==selected.length)return alert('En spelare skulle hamna på två positioner. Kontrollera kedja och backpar.');
+ if(selected.some(n=>mcExcludedBP().has(n)))return alert('Utvisad spelare kan inte sättas in.');
+ if(selected.some(n=>!roster.some(p=>p.active&&!p.goalie&&p.name===n)))return alert('En vald spelare ingår inte i matchtruppen.');
+ if(state.active&&next.every((n,i)=>n===current[i]))return;
+ closeActive();
+ state.active={line:index,players:selected,start:elapsed(),period:state.period,positionPlayers:next,mcForward:kind==='forward'?index:(state.mcForward??0),mcBack:kind==='back'?index:(state.mcBack??0)};
+ state.mcForward=state.active.mcForward;state.mcBack=state.active.mcBack;
+ state.mode=penaltyMode();save();render();
+}
+function mcRenderUnitControls(){
+ const root=document.getElementById('quickLineButtons');if(!root)return;
+ let panel=document.getElementById('mcIndependentUnits');
+ if(!panel){panel=document.createElement('div');panel.id='mcIndependentUnits';panel.style.cssText='padding:10px;border:1px solid #46617c;border-radius:12px;margin:8px 0';root.after(panel)}
+ panel.hidden=false;root.hidden=false;
+ panel.replaceChildren();
+ const intro=document.createElement('p');intro.className='help';intro.textContent='Separata byten fungerar i alla spelsystem. Välj först en komplett femma, sedan kan du byta forwards och backar oberoende. I fyrkedjeläget används Extra/special som kedja 4.';panel.append(intro);
+ for(const [kind,count,label] of [['forward',mcUnitLayout()==='four'?4:3,'Offensiv kedja'],['back',3,'Backpar']]){
+  const title=document.createElement('strong');title.textContent=label;panel.append(title);
+  const group=document.createElement('div');group.className='row';group.style.cssText='display:grid;grid-template-columns:repeat('+count+',minmax(0,1fr));gap:5px;margin:7px 0 12px';
+  for(let i=0;i<count;i++){
+   const button=document.createElement('button');button.type='button';button.textContent=(kind==='forward'?'K':'B')+(i+1);button.className=(state.active&&(kind==='forward'?state.mcForward:state.mcBack)===i)?'active':'secondary';button.style.cssText='min-width:0;padding:9px 3px';button.onclick=()=>mcUnitSwitch(kind,i===3?3:i);group.append(button);
+  }panel.append(group);
+ }
+ const specials=document.createElement('div');specials.className='row';
+ for(let i=4;i<=7;i++){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=['PP1','BP1','PP2','BP2'][i-4];b.onclick=()=>switchLine(i);specials.append(b)}panel.append(specials);
+ const note=document.createElement('p');note.className='help';note.textContent='Femmornas ordinarie knappar finns kvar ovanför. Speltiden loggas vid varje byte. Efter PP/BP välj en vanlig femma för att återgå till separata byten.';panel.append(note);
+}
 function renderSwap(){
 const on=state.active?.players||[];
 const available=mcAvailableForSwap();
@@ -1160,6 +1203,7 @@ function quickRender(){
  state.lines.forEach((line,i)=>{
   const b=document.createElement('button');b.type='button';b.textContent=i<3?'Femma '+(i+1):['Extra','PP1','BP1','PP2','BP2'][i-3];b.className=state.active?.line===i?'active':'secondary';b.onclick=()=>{switchLine(i);hidePicker()};root.append(b);
  });
+ mcRenderUnitControls();
  // Visar verklig uppställning, inte bara namnet på den senast valda femman.
  const active=state.active;
  const activeBox=$q('mcSeriesActive'),swapBox=$q('mcSeriesSwap');
@@ -3721,7 +3765,7 @@ function setup(){
  rotation.innerHTML='<strong>🔄 Spelsystem och periodvila</strong><p class="help">Välj vilande spelare för första perioden. Högst tre får vila. Inför nästa period får du ett förslag.</p><label>Spelsystem <select id="mcRotationMode"><option value="standard">Tre femmor + periodvila</option><option value="four">Fyra forwardskedjor + tre backpar</option><option value="custom">Egen uppställning / Extra-special</option></select></label><div id="mcRestSelector"></div><button type="button" id="mcSuggestRest">Föreslå vilande nästa period</button><p id="mcRestStatus" class="help"></p>';
  prep.querySelector('#mc34PrepChecks').before(rotation);
  const modeSelect=rotation.querySelector('#mcRotationMode');modeSelect.value=localStorage.getItem('mcRotationMode')||'standard';
- modeSelect.onchange=()=>{localStorage.setItem('mcRotationMode',modeSelect.value);inspectMatch()};
+ modeSelect.onchange=()=>{localStorage.setItem('mcRotationMode',modeSelect.value);inspectMatch();mcRenderUnitControls()};
  function rotationUI(coverage,field){
   const host=$('mcRestSelector'),period=String(state.period||'1');
   let rests={};try{rests=JSON.parse(localStorage.getItem(coverage.key)||'{}')||{}}catch(e){}
