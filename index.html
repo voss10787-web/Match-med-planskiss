@@ -378,14 +378,20 @@ function mcAttendanceCount(sessions,entry){const total=Object.keys(sessions).len
 function mcHasMatchData(s){return !!((s.events||[]).length||(s.shifts||[]).length||s.active||Number(s.seconds)>0||(s.internalStatEvents||[]).length||(s.penalties||[]).length)}
 function mcLineupCoverage(s,r){
  const field=(Array.isArray(r)?r:[]).filter(p=>p&&p.active&&!p.goalie),names=new Set(field.map(p=>p.name));
+ const mode=localStorage.getItem('mcRotationMode')||'standard';
  const counts=new Map(field.map(p=>[p.name,[]])),invalid=[];
  const lines=Array.isArray(s.lines)?s.lines.slice(0,3):[];
  lines.forEach((line,i)=>(Array.isArray(line)?line:[]).filter(Boolean).forEach(name=>{if(counts.has(name))counts.get(name).push(i+1);else invalid.push({name,line:i+1})}));
- const missing=field.filter(p=>counts.get(p.name).length===0).map(p=>p.name);
- const duplicates=field.filter(p=>counts.get(p.name).length>1).map(p=>({name:p.name,lines:counts.get(p.name)}));
+ // In four-chain mode the three forward positions of Extra/special are a fourth chain.
+ if(mode==='four'&&Array.isArray(s.lines?.[3]))s.lines[3].slice(2,5).filter(Boolean).forEach(name=>{if(counts.has(name))counts.get(name).push(4);else invalid.push({name,line:4})});
+ const key='mcPeriodRest:'+String(s.date||'')+':'+String(s.opponent||'');
+ let rests={};try{rests=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
+ const period=String(s.period||'1');const resting=Array.isArray(rests[period])?rests[period].filter(n=>names.has(n)):[];
+ const missing=field.filter(p=>counts.get(p.name).length===0&&!resting.includes(p.name)).map(p=>p.name);
+ const duplicates=field.filter(p=>counts.get(p.name).length>1||(counts.get(p.name).length&&resting.includes(p.name))).map(p=>({name:p.name,lines:counts.get(p.name)}));
  const assigned=field.length-missing.length;
  const complete=lines.some(line=>Array.isArray(line)&&line.length===5&&new Set(line).size===5&&line.every(n=>names.has(n)));
- return {total:field.length,assigned,missing,duplicates,invalid,complete,ok:field.length>0&&!missing.length&&!duplicates.length&&!invalid.length};
+ return {total:field.length,assigned,missing,duplicates,invalid,complete,resting,mode,key,ok:field.length>0&&!missing.length&&!duplicates.length&&!invalid.length&&resting.length<=3};
 }
 
 function mcValidGoal(type,scorer,assist){return type!=='Mål framåt'||!scorer||scorer!==assist}
@@ -3711,6 +3717,40 @@ function setup(){
  // Prep belongs to match view and stays below standard match controls rather than the clock.
  match.insertBefore(prep,match.firstChild);
  const checks=$('mc34PrepChecks'),warnings=$('mc34PrepSummary');
+ const rotation=document.createElement('div');rotation.id='mcRotationSetup';rotation.style.cssText='padding:12px;margin:10px 0;border:1px solid #55708d;border-radius:12px';
+ rotation.innerHTML='<strong>🔄 Spelsystem och periodvila</strong><p class="help">Välj vilande spelare för första perioden. Högst tre får vila. Inför nästa period får du ett förslag.</p><label>Spelsystem <select id="mcRotationMode"><option value="standard">Tre femmor + periodvila</option><option value="four">Fyra forwardskedjor + tre backpar</option><option value="custom">Egen uppställning / Extra-special</option></select></label><div id="mcRestSelector"></div><button type="button" id="mcSuggestRest">Föreslå vilande nästa period</button><p id="mcRestStatus" class="help"></p>';
+ prep.querySelector('#mc34PrepChecks').before(rotation);
+ const modeSelect=rotation.querySelector('#mcRotationMode');modeSelect.value=localStorage.getItem('mcRotationMode')||'standard';
+ modeSelect.onchange=()=>{localStorage.setItem('mcRotationMode',modeSelect.value);inspectMatch()};
+ function rotationUI(coverage,field){
+  const host=$('mcRestSelector'),period=String(state.period||'1');
+  let rests={};try{rests=JSON.parse(localStorage.getItem(coverage.key)||'{}')||{}}catch(e){}
+  const current=Array.isArray(rests[period])?rests[period]:[];
+  const occupied=new Set((state.lines||[]).slice(0,3).flat().filter(Boolean));
+  if(coverage.mode==='four')(state.lines?.[3]||[]).slice(2).filter(Boolean).forEach(n=>occupied.add(n));
+  const available=field.filter(p=>!occupied.has(p.name)).map(p=>p.name);
+  const names=[...new Set([...available,...current])];
+  host.innerHTML='<p><b>Period '+period+'</b> · '+coverage.resting.length+' vilande · '+coverage.missing.length+' utan tilldelning</p>'+names.map(n=>'<label style="display:inline-flex;align-items:center;gap:5px;margin:4px 10px 4px 0"><input type="checkbox" data-rest-name="'+esc(n)+'" '+(current.includes(n)?'checked':'')+'>'+esc(n)+'</label>').join('')+(names.length?'':'<p class="help">Alla uttagna spelare är placerade i femmor.</p>');
+  host.querySelectorAll('[data-rest-name]').forEach(el=>el.onchange=()=>{
+   let next=[...host.querySelectorAll('[data-rest-name]:checked')].map(e=>e.dataset.restName);
+   if(next.length>3){el.checked=false;alert('Högst tre vilande spelare.');return}
+   rests[period]=next;localStorage.setItem(coverage.key,JSON.stringify(rests));inspectMatch();
+  });
+  $('mcRestStatus').textContent=coverage.mode==='four'?'Extra/special: fyll de tre forwardspositionerna (C, VF, HF) med kedja 4. Backparen ligger kvar i femma 1–3.':'Extra/special fungerar som tidigare för specialbyten.';
+ }
+ $('mcSuggestRest').onclick=()=>{
+  const c=mcLineupCoverage(state,roster),period=String(state.period||'1');
+  if(period==='1'){alert('Välj vilande spelare manuellt i period 1.');return}
+  let rests={};try{rests=JSON.parse(localStorage.getItem(c.key)||'{}')||{}}catch(e){}
+  const active=roster.filter(p=>p.active&&!p.goalie);
+  const occupied=new Set(state.lines.slice(0,3).flat().filter(Boolean));if(c.mode==='four')(state.lines[3]||[]).slice(2).filter(Boolean).forEach(n=>occupied.add(n));
+  const missing=active.map(p=>p.name).filter(n=>!occupied.has(n));
+  const prior=new Set(Object.entries(rests).filter(([p])=>Number(p)<Number(period)).flatMap(([,v])=>Array.isArray(v)?v:[]));
+  const ranked=missing.sort((a,b)=>Number(prior.has(a))-Number(prior.has(b))||a.localeCompare(b,'sv'));
+  rests[period]=ranked.slice(0,3);localStorage.setItem(c.key,JSON.stringify(rests));inspectMatch();
+  $('mcRestStatus').textContent='Förslag sparat för period '+period+'. Kontrollera även vilka som ska flyttas mellan femmorna.';
+ };
+
  const prepLabel=document.createElement('span');prepLabel.id='mc34PrepBadge';prepLabel.className='mc-prep-badge';prep.querySelector('summary').append(prepLabel);
  const lineupNotice=document.createElement('div');lineupNotice.id='mcLineupCoverage';lineupNotice.setAttribute('role','status');lineupNotice.setAttribute('aria-live','polite');$('linesPanel').insertBefore(lineupNotice,$('lines'));
  // Reuse the original editable match fields and their existing save handlers.
@@ -3739,23 +3779,24 @@ function setup(){
   if(!keeperValid)notes.push(s.goalkeeper?'Vald målvakt är inte uttagen som målvakt':'Ingen startmålvakt vald');
   if(!coverage.complete)notes.push('Ingen komplett ordinarie femma');
   if(!s.date)notes.push('Matchdatum saknas');if(!String(s.opponent||'').trim())notes.push('Motståndare saknas');
-  if(coverage.missing.length)notes.push('Saknar femma: '+coverage.missing.join(', '));
+  if(coverage.missing.length)notes.push('Saknar femma eller periodvila: '+coverage.missing.join(', '));
   if(coverage.duplicates.length)notes.push('Flera platser: '+coverage.duplicates.map(p=>p.name+' (femma '+p.lines.join(', ')+')').join(' · '));
   if(coverage.invalid.length)notes.push('Ej uttagna utespelare i femmorna: '+[...new Set(coverage.invalid.map(p=>p.name))].join(', '));
   const items=[
    ['Trupp uttagen',field.length>0,field.length+' utespelare · '+gk.length+' målvakter','matchSquadPlayers'],
    ['Målvakt vald',keeperValid,keeperValid?s.goalkeeper:'Välj målvakt för matchen','keeperSelect'],
    ['Minst en komplett femma',coverage.complete,'Ordinarie femma 1–3','lines'],
-   ['Alla utespelare i varsin femma',coverage.ok,coverage.assigned+' av '+coverage.total+' placerade · ordinarie femma 1–3','lines'],
+   ['Alla utespelare placerade eller vilande',coverage.ok,coverage.assigned+' av '+coverage.total+' tilldelade · '+coverage.resting.length+' vilar','mcRotationSetup'],
    ['Matchdatum',!!s.date,s.date||'Ange datum','date'],
    ['Motståndare',!!String(s.opponent||'').trim(),s.opponent||'Ange motståndare','opponent']
   ];
+  rotationUI(coverage,field);
   checks.innerHTML=items.map(([name,ok,detail,target])=>`<button type="button" class="mc-prep-check ${ok?'is-ready':'needs-action'}" data-prep-target="${target}"><span aria-hidden="true">${ok?'✓':'⚠'}</span><span><strong>${esc(name)}</strong><small>${esc(detail)}</small></span><span aria-hidden="true">›</span></button>`).join('');
   warnings.textContent=notes.length?'Kontrollera: '+notes.join(' · '):'Grundkontrollen är godkänd. Kontrollera även PP/BP manuellt.';
   prepLabel.textContent=notes.length?' · ⚠ '+notes.length+' att kontrollera':' · ✓ Klar';prepLabel.classList.toggle('is-ready',!notes.length);
-  const message=coverage.ok?'✓ Alla '+coverage.total+' uttagna utespelare ligger i varsin ordinarie femma.':'⚠ '+coverage.assigned+' av '+coverage.total+' uttagna utespelare placerade i ordinarie femma 1–3.';
+  const message=coverage.ok?'✓ Alla '+coverage.total+' uttagna utespelare är placerade eller markerade som vilande.':'⚠ '+coverage.assigned+' av '+coverage.total+' uttagna utespelare har en tilldelning.';
   lineupNotice.className=coverage.ok?'mc-lineup-notice is-ready':'mc-lineup-notice needs-action';
-  lineupNotice.innerHTML='<strong>'+esc(message)+'</strong>'+(coverage.missing.length?'<p>Saknar femma: '+esc(coverage.missing.join(', '))+'</p>':'')+(coverage.duplicates.length?'<p>Flera platser: '+esc(coverage.duplicates.map(p=>p.name+' (femma '+p.lines.join(', ')+')').join(' · '))+'</p>':'')+(coverage.invalid.length?'<p>Byt ut ej uttagna utespelare: '+esc([...new Set(coverage.invalid.map(p=>p.name))].join(', '))+'</p>':'')+'<small>Målvakter räknas separat. PP, BP och Extra/special påverkar inte denna kontroll.</small>';
+  lineupNotice.innerHTML='<strong>'+esc(message)+'</strong>'+(coverage.missing.length?'<p>Saknar femma: '+esc(coverage.missing.join(', '))+'</p>':'')+(coverage.duplicates.length?'<p>Flera platser: '+esc(coverage.duplicates.map(p=>p.name+' (femma '+p.lines.join(', ')+')').join(' · '))+'</p>':'')+(coverage.invalid.length?'<p>Byt ut ej uttagna utespelare: '+esc([...new Set(coverage.invalid.map(p=>p.name))].join(', '))+'</p>':'')+'<small>Målvakter räknas separat. Extra/special räknas som kedja 4 endast i fyrkedjeläget.</small>';
   if(!field.length)lineupNotice.innerHTML='<strong>⚠ Ingen matchtrupp med utespelare är uttagen.</strong>';
   return notes.length===0;
  }
