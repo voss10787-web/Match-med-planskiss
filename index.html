@@ -433,6 +433,7 @@ const initialRoster=[{"name": "Algot Karlsson", "goalie": false, "active": true}
 if(!Array.isArray(state.lines)||!Array.isArray(state.events)||!Array.isArray(state.shifts)||!Array.isArray(state.penalties)||!state.lines.every(line=>Array.isArray(line))){
  state=structuredClone(defaults);
 }
+let attachShotPosition=()=>{};
 state.running=false;while(state.lines.length<8)state.lines.push(['','','','','']);let timer=null,lastTick=0;const $=id=>document.getElementById(id),fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`,save=()=>mcTestStorage.setItem(KEY,JSON.stringify(state));function elapsed(){return Math.min(900,state.seconds)}function remaining(){return Math.max(0,900-elapsed())}function tick(){if(!state.running)return;const now=performance.now();state.seconds=Math.min(900,state.seconds+(now-lastTick)/1000);lastTick=now;const mcReturned=mcReturnExpiredPlayers();if(state.seconds>=900){state.running=false;closeActive();clearInterval(timer);timer=null;save();render();return;}if(mcReturned)render();else{renderStats();renderPenalties();}$('clock').textContent=fmt(elapsed());
 const seriesTime=document.querySelector('#mcSeriesActive .mc-series-time');
 if(seriesTime&&state.matchKind!=='internal'&&state.active)seriesTime.textContent='Bytestid '+fmt(Math.max(0,elapsed()-state.active.start));
@@ -872,7 +873,7 @@ select.value=state.matchNumber||'';showMeta();
 document.getElementById('chooseMatch').onclick=()=>{const g=games.find(x=>x[4]===select.value);if(!g)return alert('Välj en match först.');if(state.events.length||state.shifts.length||state.active){if(!confirm('Du har redan matchhändelser eller byten registrerade. Vill du ändå byta matchuppgifter?'))return;}state.date=g[0];state.opponent=g[2];state.matchNumber=g[4];state.homeAway=g[3];state.venue=g[5];state.series='Pantamera P Röd MellanSyd -11';save();render();showMeta();alert('Match '+g[4]+' vald.');};
 const picker=document.getElementById('shotPicker'),players=document.getElementById('shotPlayers'),prompt=document.getElementById('shotPrompt');let pending='';
 function updateShotTotals(){const e=state.events||[];const count=t=>e.filter(x=>x.type===t).length;document.getElementById('shotTotals').textContent='Öjaby: '+count('Skott på mål')+' på mål · '+count('Skott utanför')+' utanför · '+count('Skott i täck')+' i täck · '+count('Täckt skott')+' täckta skott | Motståndare: '+count('Motståndarskott på mål')+' skott på mål';}
-function addShot(type,name){state.events.push({period:state.period,time:elapsed(),type,players:[...(state.active?.players||[])],mode:state.mode,scorer:name||'',assist:''});save();picker.hidden=true;render();updateShotTotals();}
+function addShot(type,name){const event={period:state.period,time:elapsed(),type,players:[...(state.active?.players||[])],mode:state.mode,scorer:name||'',assist:''};attachShotPosition(event,'shot');state.events.push(event);save();picker.hidden=true;render();updateShotTotals();}
 function pick(type){pending=type;const on=[...(state.active?.players||[])];picker.hidden=false;prompt.textContent=type+' – välj spelare på planen';players.replaceChildren();if(!on.length){const msg=document.createElement('span');msg.textContent='Ingen femma inne. Starta en femma först.';players.append(msg);return;}on.forEach(n=>{const b=document.createElement('button');b.type='button';b.textContent=n.split(' ')[0]+' '+(n.split(' ').slice(1).map(x=>x[0]+'.').join(''));b.onclick=()=>addShot(pending,n);players.append(b)});picker.scrollIntoView({behavior:'smooth',block:'nearest'});}
 document.getElementById('shotOn').onclick=()=>pick('Skott på mål');document.getElementById('shotOff').onclick=()=>pick('Skott utanför');document.getElementById('shotBlock').onclick=()=>pick('Täckt skott');document.getElementById('shotBlocked').onclick=()=>pick('Skott i täck');document.getElementById('shotAgainst').onclick=()=>addShot('Motståndarskott på mål','');document.getElementById('shotCancel').onclick=()=>picker.hidden=true;
 const oldRender=render;render=function(){oldRender();updateShotTotals();showMeta();};updateShotTotals();
@@ -1116,7 +1117,7 @@ function add(type,player='',assist=''){
    if(couldEnd&&!ended)ev.penaltyKeep=true;
    if(ended){ev.penaltyEnded=true;ev._penaltyBefore=before;}
  }
- state.events.push(ev);mcReturnExpiredPlayers();save();hidePicker();render();
+ attachShotPosition(ev,'quick');state.events.push(ev);mcReturnExpiredPlayers();save();hidePicker();render();
  feedback(type+' registrerat'+(player?' · '+player:ev.line!==null?' · femma '+(ev.line+1):'')+(assist?' · assist '+assist:''));
 }
 function eligiblePlayers(exclude=''){
@@ -1700,7 +1701,7 @@ draw();
  const addOpponentEvent=(type,saveEvent=false)=>{
    const e={period:state.period,time:elapsed(),type,players:state.active?.players||[],line:state.active?.line??null,mode:state.mode,scorer:'',assist:'',goalie:state.goalkeeper||'',quick:true};
    if(saveEvent)e.savedByGoalie=true;
-   state.events.push(e);save();render();
+   attachShotPosition(e,'quick');state.events.push(e);save();render();
    el('quickFeedback').textContent=type+' registrerat'+(e.goalie?' · '+e.goalie:'');
  };
  // A save is a shot on target; a conceded goal also counts as a shot on target in keeper statistics.
@@ -1709,7 +1710,8 @@ draw();
  // Opponent's blocked shot is credited to the Öjaby player who blocked it.
  // Reuse the existing player picker and 'Täckt skott' event type, avoiding double counting.
  const oppShotOff=extra('↗️ Skott utanför',()=>addOpponentEvent('Motståndarskott utanför'));
- const oppBlocked=extra('🧱 Skott i täck',()=>el('quickBlock').click());
+ const oppBlocked=extra('🧱 Skott i täck',el('quickBlock').onclick);
+ oppShotOff.id='quickOppShotOff';oppBlocked.id='quickOppBlocked';
  // Keep the legacy button in the DOM because the quick picker and other scripts reference it.
  el('quickBlock').hidden=true;
  grid.append(el('quickBlock'));
@@ -2683,7 +2685,7 @@ const $=id=>document.getElementById(id),overlay=$('smOverlay'),rink=$('smRink');
 const prefsKey='mc_shotmap_prefs_v1';let smFullView=false,smFocusTop=true;let prefs={side:'bottom',attack:'right'};try{prefs={...prefs,...JSON.parse(mcTestStorage.getItem(prefsKey)||'{}')}}catch{}$('smSide').value=prefs.side;$('smAttack').value=prefs.attack;
 // Positions are stored ON the match event, not in a separate, potentially stale array.
 // Undo/delete removes the position automatically; edits retain the event association.
-let pending=null,selected=null,waiting=null;
+let pending=null,selected=null,registration=null,resuming=false;
 function pointsNow(){return (state.events||[]).filter(e=>e&&e.shotmap&&Number.isFinite(e.shotmap.x)&&Number.isFinite(e.shotmap.y)).map(e=>({...e.shotmap,type:e.type,period:e.period,time:e.time,scorer:e.scorer||'',assist:e.assist||'',blocker:e.blocker||e.coverer||'',goalie:e.goalie||''}));}
 const ns='http://www.w3.org/2000/svg';function svg(tag,attrs){const n=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);return n}
 function draw(target,records=[],mark=null){
@@ -2744,52 +2746,62 @@ function smUpdateFocus(){
  draw(rink,[],selected);
 }
 function savePrefs(){prefs={side:$('smSide').value,attack:$('smAttack').value};mcTestStorage.setItem(prefsKey,JSON.stringify(prefs));if(pending)smFocusTop=pending.team==='own'?smOwnTop():!smOwnTop();updateGoalLabels();smUpdateFocus();drawAnalysis()}$('smSide').onchange=savePrefs;$('smAttack').onchange=savePrefs;
-function teamType(btn){const id=btn.id,txt=(btn.textContent||'').toLowerCase();if(['quickGoal','quickAgainst','quickShotOn','quickShotOff','quickShotBlocked','quickBlock','quickOppShot','shotOn','shotOff','shotBlocked','shotBlock','shotAgainst'].includes(id)||btn.closest('.teamQuickGroup')&&(/mål|skott/.test(txt))){if(/utvisning/.test(txt))return null;return {team:btn.closest('.teamQuickGroup.opp')||['quickAgainst','quickOppShot','shotAgainst','quickBlock','shotBlock'].includes(id)?'opp':'own',type:txt.trim()||id};}return null}
-function eventMatch(e,p){
- if(!e||e.penaltyShot||e.shotmap)return false;
- const t=String(e.type||'').toLowerCase(), id=p.button?.id||'', label=String(p.type||'').toLowerCase();
- const opp=/bakåt|motståndar/.test(t)||t==='täckt skott';
- if((p.team==='opp')!==opp)return false;
- // A goal click must never attach its position to a different shot event.
- if(/goal|against/i.test(id)||/mål/.test(label)&&!/skott/.test(label))return /mål framåt|mål bakåt/.test(t);
- // Match the actual shot outcome, not just any shot by the same team.
- if(/blocked|block/i.test(id)||/täck/.test(label))return /täck/.test(t);
- if(/off/i.test(id)||/utanför/.test(label))return /utanför/.test(t);
- if(/on|oppShot|shotAgainst/i.test(id)||/på mål/.test(label))return /skott/.test(t)&&!/utanför|täck/.test(t);
- return /skott/.test(t);
-}
-// Every new match event receives a stable identifier, including legacy events on first access.
+const shotTypes={
+ quickGoal:['Mål framåt','own'],quickAgainst:['Mål bakåt','opp'],
+ quickShotOn:['Skott på mål','own'],quickShotOff:['Skott utanför','own'],
+ quickShotBlocked:['Skott i täck','own'],quickBlock:['Täckt skott','opp'],
+ quickOppBlocked:['Täckt skott','opp'],quickOppShot:['Motståndarskott på mål','opp'],
+ quickOppShotOff:['Motståndarskott utanför','opp'],
+ shotOn:['Skott på mål','own'],shotOff:['Skott utanför','own'],
+ shotBlocked:['Skott i täck','own'],shotBlock:['Täckt skott','opp'],
+ shotAgainst:['Motståndarskott på mål','opp']
+};
 let smEventCounter=0;
-function smEnsureEventIds(){
- for(const ev of (state.events||[]))if(ev&&!ev.smEventId)ev.smEventId='sm-'+Date.now().toString(36)+'-'+(++smEventCounter).toString(36);
+function smCancelPending(){pending=null;selected=null;registration=null;}
+attachShotPosition=(event,source)=>{
+ const request=registration;
+ if(!request||request.source!==source||request.match!==state||request.period!==event.period||request.type!==event.type)return;
+ registration=null;
+ event.smEventId='sm-'+Date.now().toString(36)+'-'+(++smEventCounter).toString(36);
+ event.shotmap={...request.position,team:request.team,eventId:event.smEventId,created:Date.now(),ownAttackTop:request.ownAttackTop,attackTop:request.team==='own'?request.ownAttackTop:!request.ownAttackTop,directionVersion:1,period:Number(event.period)};
+};
+function openMap(button){
+ const [type,team]=shotTypes[button.id];
+ const source=button.id.startsWith('quick')?'quick':'shot';
+ const picker=$(source==='quick'?'quickPicker':'shotPicker');
+ // Close the old picker before starting another event, even if it had no position.
+ $('quickPicker').hidden=true;
+ $('shotPicker').hidden=true;
+ smCancelPending();
+ pending={type,team,source,button,picker,match:state,period:state.period};
+ smFullView=false;smFocusTop=team==='own'?smOwnTop():!smOwnTop();
+ $('smEventLabel').textContent=(team==='own'?'Öjaby: ':'Motståndare: ')+type;
+ $('smConfirm').disabled=true;updateGoalLabels();smUpdateFocus();overlay.hidden=false;
 }
-function smCancelPending(){clearInterval(waiting);waiting=null;pending=null;selected=null;}
-function commitPosition(){
- if(!pending||!selected)return false;
- // Never guess when multiple events of the requested kind were recorded.
- const candidates=(state.events||[]).slice(pending.startCount).filter(e=>eventMatch(e,pending));
- if(candidates.length!==1)return false;
- const found=candidates[0];
- if(found.shotmap)return false;
- smEnsureEventIds();
- found.shotmap={x:selected.x,y:selected.y,team:pending.team,eventId:found.smEventId,created:Date.now(),ownAttackTop:smOwnTop(),attackTop:pending.team==='own'?smOwnTop():!smOwnTop(),directionVersion:1,period:Number(state.period||1)};
- save();smCancelPending();if($('smAnalysisPanel')?.getClientRects().length)requestAnimationFrame(drawAnalysis);return true;
+function resume(withPosition){
+ const request=pending,position=selected;
+ overlay.hidden=true;smCancelPending();
+ if(!request||request.match!==state||request.period!==state.period)return;
+ if(withPosition)registration={...request,position,ownAttackTop:smOwnTop()};
+ resuming=true;
+ try{request.button.click();}
+ finally{
+  resuming=false;
+  if(request.picker.hidden)registration=null;
+ }
 }
-function waitForEvent(){
- if(!pending||!selected)return;
- const started=Date.now();clearInterval(waiting);
- waiting=setInterval(()=>{
-  if(!pending||!selected){clearInterval(waiting);return}
-  const candidates=(state.events||[]).slice(pending.startCount).filter(e=>eventMatch(e,pending));
-  if(candidates.length>1){smCancelPending();return} // Ambiguous: leave unpositioned rather than attach incorrectly.
-  if(commitPosition())return;
-  if(Date.now()-started>30000)smCancelPending();
- },200);
-}
-function openMap(btn){const kind=teamType(btn);if(!kind||pending)return false;pending={...kind,button:btn,startCount:state.events.length};selected=null;smFullView=false;smFocusTop=kind.team==='own'?smOwnTop():!smOwnTop();$('smEventLabel').textContent=(kind.team==='own'?'Öjaby: ':'Motståndare: ')+kind.type;$('smConfirm').disabled=true;updateGoalLabels();smUpdateFocus();overlay.hidden=false;return true}
-function resume(withPosition){const p=pending;overlay.hidden=true;if(!p)return;selected=withPosition?selected:null;pending={...p,startCount:state.events.length};if(withPosition)waitForEvent();else pending=null;p.button.dataset.smBypass='1';p.button.click();delete p.button.dataset.smBypass;}
-// Capture before existing handlers; no original event registration logic is replaced.
-document.addEventListener('click',e=>{const btn=e.target.closest('button');if(!btn||btn.dataset.smBypass||overlay.contains(btn))return;if(openMap(btn)){e.preventDefault();e.stopImmediatePropagation()}},true);
+document.addEventListener('click',e=>{
+ const button=e.target.closest('button');
+ if(!button||resuming||overlay.contains(button))return;
+ if(Object.hasOwn(shotTypes,button.id)){
+  openMap(button);e.preventDefault();e.stopImmediatePropagation();return;
+ }
+ if(registration&&['quickCancel','shotCancel','quickFaceoffWon','quickFaceoffLost'].includes(button.id))registration=null;
+},true);
+$('period').addEventListener('change',()=>{
+ if(registration&&registration.period!==state.period){registration.picker.hidden=true;registration=null;}
+ if(!overlay.hidden){overlay.hidden=true;smCancelPending();}
+});
 $('smFocusToggle').onclick=()=>{smFullView=!smFullView;smUpdateFocus()};
 rink.setAttribute('tabindex','0');rink.setAttribute('aria-label','Skottkarta. Tryck eller använd piltangenter för att välja position.');rink.addEventListener('keydown',e=>{if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter',' '].includes(e.key))return;e.preventDefault();if(!selected)selected={x:.5,y:smFullView?.5:(smFocusTop?.3:.7)};const d=.025;if(e.key==='ArrowUp')selected.y=Math.max(0,selected.y-d);if(e.key==='ArrowDown')selected.y=Math.min(1,selected.y+d);if(e.key==='ArrowLeft')selected.x=Math.max(0,selected.x-d);if(e.key==='ArrowRight')selected.x=Math.min(1,selected.x+d);$('smConfirm').disabled=false;draw(rink,[],selected);});rink.addEventListener('click',e=>{const matrix=rink.getScreenCTM();if(!matrix)return;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(matrix.inverse());const x=Math.max(0,Math.min(1,(p.x-12)/336));const y=Math.max(0,Math.min(1,(p.y-12)/656));selected={x,y};$('smConfirm').disabled=false;draw(rink,[],selected)});
 $('smConfirm').onclick=()=>{if(selected)resume(true)};$('smSkip').onclick=()=>resume(false);$('smCancel').onclick=()=>{overlay.hidden=true;smCancelPending()};
