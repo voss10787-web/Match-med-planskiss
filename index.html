@@ -105,6 +105,19 @@
 #quickPlayers .mc-show-bench{width:100%;min-height:38px;font-size:12px;margin-top:8px}
 #quickPlayers .mc-bench-choices{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:6px}
 #quickPlayers .mc-bench-choices[hidden]{display:none!important}
+</style><style id="mc-compact-match-swap">
+#quickPanel #mcSeriesActive{margin:0 0 8px;padding:7px}
+#quickPanel .mc-series-heading{font-size:12px;gap:5px}
+#quickPanel .mc-series-names{display:grid;grid-template-columns:repeat(var(--mc-on-court),minmax(0,1fr));gap:4px;margin:5px 0 0}
+#quickPanel .mc-tap-player{min-height:44px;padding:3px 2px;line-height:1.1}
+#quickPanel .mc-tap-player[aria-expanded="true"]{background:#176c58;border-color:#62d1af}
+#quickPanel .mc-tap-player-name{display:block;background:none;padding:0;font-size:11px;overflow-wrap:anywhere}
+#quickPanel .mc-tap-player-position{display:block;background:none;padding:0;font-size:10px}
+#quickPanel #mcSeriesSwap{display:block;padding:7px;margin:0 0 8px}
+#quickPanel .mc-compact-bench{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:5px 0}
+#quickPanel .mc-compact-bench button{min-width:0;padding:4px;font-size:12px;min-height:44px;overflow-wrap:anywhere}
+#quickPanel .mc-compact-bench .mc-same-position{border-color:#62d1af}
+#quickPanel .mc-compact-swap-action{min-height:36px;padding:4px 8px;font-size:12px}
 </style><style id="mc-series-shifts-style">
 #mcSeriesActive{border:1px solid #395b77;background:#172d43;border-radius:10px;padding:10px;margin:10px 0;font-size:13px}
 .mc-series-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
@@ -659,14 +672,16 @@ for(const [outId,inId] of [['swapOut','swapIn'],['swapOut2','swapIn2']]){
 $('swapButton').disabled=!state.active;
 $('swapStatus').textContent=state.active?'På planen just nu: '+on.join(', '):'Starta en femma för att göra ett spelarbyte.';
 }
-function swapPlayer(){
+function swapPlayer(pairs,onCommit){
  if(elapsed()>=900)return alert('Perioden är slut. Byt period innan du gör ett spelarbyte.');
  if(!state.active)return alert('Starta en femma först.');
- const first=[$('swapOut').value,$('swapIn').value];
- const second=[$('swapOut2').value,$('swapIn2').value];
- if(!first[0]||!first[1])return alert('Välj både spelare UT och IN för första bytet.');
- if(Boolean(second[0])!==Boolean(second[1]))return alert('Välj både spelare UT 2 och IN 2, eller lämna båda tomma.');
- const pairs=[first,...(second[0]?[second]:[])];
+ if(!pairs){
+  const first=[$('swapOut').value,$('swapIn').value];
+  const second=[$('swapOut2').value,$('swapIn2').value];
+  if(!first[0]||!first[1])return alert('Välj både spelare UT och IN för första bytet.');
+  if(Boolean(second[0])!==Boolean(second[1]))return alert('Välj både spelare UT 2 och IN 2, eller lämna båda tomma.');
+  pairs=[first,...(second[0]?[second]:[])];
+ }
  const outgoing=pairs.map(p=>p[0]),incoming=pairs.map(p=>p[1]);
  if(new Set(outgoing).size!==outgoing.length||new Set(incoming).size!==incoming.length)return alert('Samma spelare kan inte väljas två gånger.');
  if(incoming.some(n=>mcExcludedBP().has(n)))return alert('En utvisad spelare kan inte bytas in.');
@@ -678,7 +693,7 @@ function swapPlayer(){
  state.active={line:previous.line,players,start:elapsed(),period:state.period};
  state.active.positionPlayers=mcSlotsForActive(previous).map(n=>replacements.get(n)||n);
  state.events.push({period:state.period,time:elapsed(),type:'Spelarbyte',players:pairs.flat(),mode:state.mode,scorer:'',assist:''});
- save();render();
+ save();onCommit?.(previous);render();
 }
 function matchTime(period=state.period,sec=elapsed()){return (Number(period)-1)*900+sec}
 function penaltyEnd(p){return p.endedAt??(matchTime(p.period,p.time)+p.minutes*60)}
@@ -838,7 +853,7 @@ function download(name,text,type){let a=document.createElement('a'),url=URL.crea
   state.active={line:sh.line,players:[...sh.players],start:sh.start,period:sh.period};
  }
  save();render();
-};$('addEvent').onclick=record;$('swapButton').onclick=swapPlayer;$('period').onchange=e=>{const wanted=e.target.value;if(state.active){alert('Tryck Alla UT innan du byter period.');render();return;}if(state.running){alert('Pausa matchklockan innan du byter period.');render();return;}state.period=wanted;state.seconds=0;state.running=false;clearInterval(timer);timer=null;save();render()};$('opponent').onchange=e=>{state.opponent=e.target.value;save()};$('date').onchange=e=>{state.date=e.target.value;save()};$('csv').onclick=()=>{const head=['Spelare','Speltid sekunder','Byten','Mål','Assist','Plus/minus','Utvisningsminuter','Vunna tekningar','Förlorade tekningar','Tekningsprocent'];const lines=[head,...names.map(n=>{const s=statFor(n);return[n,Math.round(s.time),s.shifts,s.goals,s.assists,s.plus,s.penMinutes,s.faceoffsWon,s.faceoffsLost,s.faceoffsWon+s.faceoffsLost?Math.round(100*s.faceoffsWon/(s.faceoffsWon+s.faceoffsLost)):'' ]})];download('ojaby_statistik.csv','\ufeff'+lines.map(r=>r.join(';')).join('\r\n'),'text/csv;charset=utf-8')};$('json').onclick=()=>download('ojaby_match.json',JSON.stringify(state,null,2),'application/json');$('load').onchange=async e=>{
+};$('addEvent').onclick=record;$('swapButton').onclick=()=>swapPlayer();$('period').onchange=e=>{const wanted=e.target.value;if(state.active){alert('Tryck Alla UT innan du byter period.');render();return;}if(state.running){alert('Pausa matchklockan innan du byter period.');render();return;}state.period=wanted;state.seconds=0;state.running=false;clearInterval(timer);timer=null;save();render()};$('opponent').onchange=e=>{state.opponent=e.target.value;save()};$('date').onchange=e=>{state.date=e.target.value;save()};$('csv').onclick=()=>{const head=['Spelare','Speltid sekunder','Byten','Mål','Assist','Plus/minus','Utvisningsminuter','Vunna tekningar','Förlorade tekningar','Tekningsprocent'];const lines=[head,...names.map(n=>{const s=statFor(n);return[n,Math.round(s.time),s.shifts,s.goals,s.assists,s.plus,s.penMinutes,s.faceoffsWon,s.faceoffsLost,s.faceoffsWon+s.faceoffsLost?Math.round(100*s.faceoffsWon/(s.faceoffsWon+s.faceoffsLost)):'' ]})];download('ojaby_statistik.csv','\ufeff'+lines.map(r=>r.join(';')).join('\r\n'),'text/csv;charset=utf-8')};$('json').onclick=()=>download('ojaby_match.json',JSON.stringify(state,null,2),'application/json');$('load').onchange=async e=>{
  const f=e.target.files?.[0];if(!f)return;
  const previous=state;let stored;
  try{
@@ -1091,6 +1106,19 @@ const hub=$q('quickPanel'), clock=$q('clockPanel'), schedule=$q('matchSchedule')
 // Match controls grouped near the clock without removing any existing feature.
 clock.insertBefore($q('liveScoreboard'), clock.firstChild);
 clock.after(hub);
+const activeBox=$q('mcSeriesActive'),swapBox=$q('mcSeriesSwap');
+hub.querySelector('h2').after(activeBox,swapBox);
+let selectedSwap=null,lastCompactSwap=null;
+function canUndoCompactSwap(){
+ return lastCompactSwap&&state.active===lastCompactSwap.active&&
+  state.events.at(-1)===lastCompactSwap.event&&state.shifts.at(-1)===lastCompactSwap.shift&&elapsed()<900;
+}
+function undoCompactSwap(){
+ if(!canUndoCompactSwap())return;
+ state.events.pop();state.shifts.pop();state.active=lastCompactSwap.previous;
+ lastCompactSwap=null;selectedSwap=null;save();render();feedback('Spelarbytet ångrades.');
+}
+
 hub.after($q('swapPanel'));
 $q('swapPanel').after($q('linesPanel'));
 $q('linesPanel').after($q('eventsPanel'));
@@ -1197,122 +1225,81 @@ $q('quickCancel').onclick=hidePicker;
 $q('quickUndo').onclick=()=>{
  if(!state.events.length)return feedback('Det finns ingen händelse att ångra.');
  const ev=state.events[state.events.length-1];
+ if(ev===lastCompactSwap?.event){if(canUndoCompactSwap())undoCompactSwap();else feedback('Bytet kan inte ångras efter att uppställningen ändrats.');return;}
  if(!confirm('Ångra senaste händelsen: '+ev.type+'?'))return;
  state.events.pop();
  if(['Mål framåt','Mål bakåt'].includes(ev.type)&&!ev.penaltyShot){if(typeof window.mcRebuildPenaltyEffects==='function')window.mcRebuildPenaltyEffects();}
  save();render();feedback('Ångrat: '+ev.type);
 };
+function renderCompactSwap(){
+ const active=state.active;
+ const visible=state.matchKind!=='internal';
+ activeBox.hidden=!visible;
+ activeBox.replaceChildren();swapBox.replaceChildren();swapBox.hidden=true;
+ if(!visible||!active||!active.players.length){
+  selectedSwap=null;
+  activeBox.textContent='På planen · välj en femma';
+  return;
+ }
+ if(selectedSwap?.active!==active)selectedSwap=null;
+ const heading=document.createElement('div');heading.className='mc-series-heading';
+ const label=document.createElement('strong');label.textContent='På planen';
+ const time=document.createElement('span');time.className='mc-series-time';time.textContent='Bytestid '+fmt(Math.max(0,elapsed()-active.start));
+ heading.append(label,time);
+ if(canUndoCompactSwap()){
+  const undo=document.createElement('button');undo.type='button';undo.className='secondary mc-compact-swap-action';undo.textContent='Ångra byte';undo.onclick=undoCompactSwap;heading.append(undo);
+ }
+ activeBox.append(heading);
+ const namesBox=document.createElement('div');namesBox.className='mc-series-names';
+ namesBox.style.setProperty('--mc-on-court',active.players.length);
+ const slots=mcSlotsForActive(active);
+ const positions=['VB','HB','C','VF','HF'];
+ const firstNames=active.players.map(name=>name.split(' ')[0]);
+ active.players.forEach((name,index)=>{
+  const button=document.createElement('button');button.type='button';button.className='mc-tap-player';
+  const position=positions[slots.indexOf(name)]||'';
+  const short=document.createElement('span');short.className='mc-tap-player-name';
+  short.textContent=firstNames.indexOf(firstNames[index])===firstNames.lastIndexOf(firstNames[index])?firstNames[index]:name;
+  const role=document.createElement('span');role.className='mc-tap-player-position';role.textContent=position;
+  const expanded=selectedSwap?.name===name;
+  button.append(short,role);button.setAttribute('aria-label','Byt ut '+name+(position?', '+position:''));
+  button.setAttribute('aria-expanded',String(expanded));button.setAttribute('aria-controls',swapBox.id);
+  button.onclick=()=>{selectedSwap=expanded?null:{active,name};renderCompactSwap();activeBox.querySelectorAll('.mc-tap-player')[index]?.focus({preventScroll:true});};
+  namesBox.append(button);
+ });
+ activeBox.append(namesBox);
+ if(!selectedSwap)return;
+ const {name:out}=selectedSwap;
+ const available=mcAvailableForSwap();
+ const ranked=window.mcV3Rank?window.mcV3Rank(out,available,active):available;
+ const slot=slots.indexOf(out);
+ const samePosition=name=>slot>=0&&state.lines.some((line,i)=>i<3&&line[slot]===name);
+ const choices=document.createElement('div');choices.className='mc-compact-bench';
+ const prompt=document.createElement('strong');prompt.textContent=available.length?'In för '+out:'Inga tillgängliga spelare';
+ const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary mc-compact-swap-action';cancel.textContent='Avbryt';
+ cancel.onclick=()=>{selectedSwap=null;renderCompactSwap();activeBox.querySelectorAll('.mc-tap-player')[active.players.indexOf(out)]?.focus({preventScroll:true});};
+ const pickerHeading=document.createElement('div');pickerHeading.className='mc-series-heading';pickerHeading.append(prompt,cancel);
+ for(const name of [...ranked.filter(samePosition),...ranked.filter(name=>!samePosition(name))]){
+  const button=document.createElement('button');button.type='button';button.className='secondary';
+  button.classList.toggle('mc-same-position',samePosition(name));button.textContent=name;
+  button.onclick=()=>{
+   if(state.active!==active||!mcAvailableForSwap().includes(name)){renderCompactSwap();return;}
+   swapPlayer([[out,name]],previous=>{
+    lastCompactSwap={previous,active:state.active,event:state.events.at(-1),shift:state.shifts.at(-1)};
+    selectedSwap=null;
+   });
+  };
+  choices.append(button);
+ }
+ swapBox.append(pickerHeading,choices);swapBox.hidden=false;
+}
 function quickRender(){
  const root=$q('quickLineButtons');root.replaceChildren();
  state.lines.forEach((line,i)=>{
   const b=document.createElement('button');b.type='button';b.textContent=i<3?'Femma '+(i+1):['Extra','PP1','BP1','PP2','BP2'][i-3];b.className=state.active?.line===i?'active':'secondary';b.onclick=()=>{switchLine(i);hidePicker()};root.append(b);
  });
  mcRenderUnitControls();
- // Visar verklig uppställning, inte bara namnet på den senast valda femman.
- const active=state.active;
- const activeBox=$q('mcSeriesActive'),swapBox=$q('mcSeriesSwap');
- const tapOut=swapBox.dataset.mcTapOut;
- const lineNames=['Femma 1','Femma 2','Femma 3','Extra','PP1','BP1','PP2','BP2'];
- if(active){
-  const template=state.lines[active.line]||[];
-  const adjusted=active.players.length!==new Set(template.filter(Boolean)).size || !active.players.every(n=>template.includes(n));
-  const shiftSec=Math.max(0,elapsed()-active.start);
-  activeBox.replaceChildren();
-  const heading=document.createElement('div');heading.className='mc-series-heading';
-  const label=document.createElement('strong');label.textContent=(lineNames[active.line]||'Femma')+(adjusted?' – justerad':'');
-  if(active.line>=4&&active.line<=7){label.classList.add('mc-special-label');label.textContent=(active.line===4||active.line===6?'⚡ POWERPLAY · ':'🛡 BOXPLAY · ')+(lineNames[active.line]||'')+(adjusted?' – justerad':'');}
-  const time=document.createElement('span');time.className='mc-series-time';time.textContent='Bytestid '+fmt(shiftSec);
-  heading.append(label,time);activeBox.append(heading);
-  if(active.line>=4&&active.line<=7){const note=document.createElement('div');note.className='mc-special-note';note.textContent='Efter PP/BP: välj själv Femma 1, 2, 3 eller Extra ovan. Ingen automatisk återgång.';activeBox.append(note);}
-  const namesBox=document.createElement('div');namesBox.className='mc-series-names';
-  const positionLabels=['Vänster back','Höger back','Center','Vänster forward','Höger forward'];
-  const slots=mcSlotsForActive(active);
-  active.players.forEach(name=>{const el=document.createElement('button');el.type='button';el.className='mc-tap-player';
-   const nameEl=document.createElement('span');nameEl.className='mc-tap-player-name';nameEl.textContent=name;
-   const posEl=document.createElement('span');posEl.className='mc-tap-player-position';
-   const pos=slots.indexOf(name);posEl.textContent=pos>=0?positionLabels[pos]:'Position ej angiven';
-   el.append(nameEl,posEl);el.title='Byt ut '+name+' – '+posEl.textContent;el.onclick=()=>showTapSwap(name);namesBox.append(el)});activeBox.append(namesBox);
-  const trigger=document.createElement('button');trigger.type='button';trigger.className='secondary mc-series-swap-trigger';trigger.textContent='🔄 Byt en spelare';activeBox.append(trigger);
-  // Behåll formuläret öppet under render, även när matchklockan uppdateras.
-  trigger.onclick=()=>{swapBox.hidden=!swapBox.hidden;drawSeriesSwap()};
-  if(!swapBox.hidden){if(tapOut&&active.players.includes(tapOut))showTapSwap(tapOut);else drawSeriesSwap();}
- }else{
-  activeBox.textContent='Ingen femma på planen – välj en femma ovan.';
-  swapBox.hidden=true;swapBox.replaceChildren();
- }
- function showTapSwap(outName){
-  if(!state.active||!state.active.players.includes(outName))return;
-  swapBox.hidden=false;swapBox.replaceChildren();swapBox.dataset.mcTapOut=outName;
-  const label=document.createElement('div');label.className='mc-tap-swap-label';label.textContent='Byt ut '+outName+' – välj spelare IN:';swapBox.append(label);
-  const choices=document.createElement('div');choices.className='mc-tap-swap-list mc-position-suggestions';
-  const current=state.active;
-  const slotIndices=(current.line===5||current.line===7)?[0,1,3,4]:[0,1,2,3,4];
-  const slots=mcSlotsForActive(current);
-  const pos=slots.indexOf(outName);
-  const labels=['Vänster back','Höger back','Center','Vänster forward','Höger forward'];
-  const roleNames=['Vänsterback','Högerback','Center','Vänsterforward','Högerforward'];
-  const wanted=roleNames[pos]||'';
-  const rawProfiles=(()=>{try{return JSON.parse(mcTestStorage.getItem('ojaby_mc3_profiles_v1')||'{}')}catch{return {}}})();
-  const profileMap=rawProfiles&&typeof rawProfiles==='object'?rawProfiles:{};
-  const overrides=(()=>{try{return JSON.parse(mcTestStorage.getItem('ojaby_mc3_match_positions_v1')||'{}')}catch{return {}}})();
-  const overrideMap=overrides&&typeof overrides==='object'?overrides:{};
-  const blocked=new Set(activePenalties().filter(p=>p.team==='own').map(p=>p.player).filter(Boolean));
-  const available=mcAvailableForSwap();
-  const assigned=n=>state.lines.some((line,i)=>i!==3&&Array.isArray(line)&&line[pos]===n);
-  const roleMatch=(role)=>role===wanted||(pos===0||pos===1)&&(role==='Back');
-  const recommendations=available.map(n=>{
-   const profile=profileMap[n]||{};
-   const primary=overrideMap[n]||profile.primary||'';
-   const secondary=Array.isArray(profile.secondary)?profile.secondary:[];
-   const same=pos>=0&&assigned(n);
-   const preferred=!!wanted&&roleMatch(primary);
-   const alternate=!!wanted&&secondary.some(roleMatch);
-   const tier=same||preferred?0:alternate?1:2;
-   const reason=same?'Samma position i annan femma':preferred?'Primär position':alternate?'Andraposition':'Valfri ersättare';
-   return {name:n,tier,reason};
-  }).sort((a,b)=>a.tier-b.tier||a.name.localeCompare(b.name,'sv'));
-  if(!available.length){const msg=document.createElement('p');msg.textContent='Inga tillgängliga utespelare på bänken.';choices.append(msg);}
-  for(const [tier,heading] of [[0,'⭐ Samma position'],[1,'↔ Kan spela positionen'],[2,'Övriga tillgängliga']]){
-   const group=recommendations.filter(x=>x.tier===tier);
-   if(!group.length)continue;
-   const section=document.createElement('div');section.className='mc-suggestion-group';
-   const h=document.createElement('strong');h.className='mc-suggestion-heading';h.textContent=heading;section.append(h);
-   for(const item of group){
-    const b=document.createElement('button');b.type='button';b.className='secondary mc-suggestion-button';
-    const n=document.createElement('span');n.textContent=item.name;const hint=document.createElement('small');hint.textContent=item.reason;
-    b.append(n,hint);b.onclick=()=>{
-     if(!state.active?.players.includes(outName)||state.active.players.includes(item.name))return;
-     if(activePenalties().some(p=>p.team==='own'&&p.player===item.name))return alert('Spelaren är utvisad och kan inte bytas in.');
-     $('swapOut').value=outName;$('swapIn').value=item.name;$('swapOut2').value='';$('swapIn2').value='';
-     swapBox.hidden=true;delete swapBox.dataset.mcTapOut;swapPlayer();
-    };section.append(b);
-   }
-   choices.append(section);
-  }
-  swapBox.append(choices);
-  const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary';cancel.textContent='Avbryt';cancel.style.marginTop='10px';cancel.onclick=()=>{swapBox.hidden=true;swapBox.replaceChildren()};swapBox.append(cancel);
- }
- function drawSeriesSwap(){
-  if(!state.active)return;
-  const oldOut=swapBox.querySelector('[data-swap-out]')?.value||'';
-  const oldIn=swapBox.querySelector('[data-swap-in]')?.value||'';
-  delete swapBox.dataset.mcTapOut;swapBox.replaceChildren();
-  const out=document.createElement('select'),inside=document.createElement('select');
-  out.dataset.swapOut='';inside.dataset.swapIn='';
-  const makeOption=(select,value,label)=>{const opt=document.createElement('option');opt.value=value;opt.textContent=label;select.append(opt)};
-  makeOption(out,'','Spelare UT');makeOption(inside,'','Spelare IN');
-  state.active.players.forEach(n=>makeOption(out,n,n));
-  (window.mcV3Rank?window.mcV3Rank(oldOut,mcAvailableForSwap(),state.active):mcAvailableForSwap()).forEach(n=>makeOption(inside,n,n));
-  out.onchange=()=>{const prev=inside.value;inside.replaceChildren();makeOption(inside,'','Spelare IN');const list=mcAvailableForSwap();(window.mcV3Rank?window.mcV3Rank(out.value,list,state.active):list).forEach(n=>makeOption(inside,n,n));if(list.includes(prev))inside.value=prev;};
-  if([...out.options].some(o=>o.value===oldOut))out.value=oldOut;
-  if([...inside.options].some(o=>o.value===oldIn))inside.value=oldIn;
-  const go=document.createElement('button');go.type='button';go.textContent='Genomför byte';
-  go.onclick=()=>{if(!out.value||!inside.value)return alert('Välj spelare UT och IN.');
-    $('swapOut').value=out.value;$('swapIn').value=inside.value;
-    $('swapOut2').value='';$('swapIn2').value='';
-    swapBox.hidden=true;delete swapBox.dataset.mcTapOut;swapPlayer();};
-  swapBox.append(out,inside,go);
- }
+ renderCompactSwap();
  const last=state.events[state.events.length-1];
  $q('quickRecent').textContent=last?'Senast: P'+last.period+' '+fmt(last.time)+' · '+last.type+(last.scorer?' · '+last.scorer+(last.assist?' (assist '+last.assist+')':''):last.line!=null?' · femma '+(last.line+1):''):'Inga händelser ännu.';
  $q('quickUndo').disabled=!state.events.length;
